@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Login | AsphaltPro</title>
+
+  <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='favicon.ico') }}">
+
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&family=Open+Sans:wght@300;400;600&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    :root {
+      --primary: #1a2a3a;
+      --secondary: #f39c12;
+      --accent: #3498db;
+      --asphalt: #34495e;
+      --pavement: #7f8c8d;
+      --light-bg: #f5f7fa;
+      --card-gradient: linear-gradient(145deg, #ffffff, #f0f4f8);
+      --success: #27ae60;
+      --warning: #f39c12;
+      --danger: #e74c3c;
+    }
+    
+    body {
+      background: radial-gradient(circle at top right, #e0e7f0, #d1e0f0 40%, #e0e7f0 80%, #e0e7f0 100%);
+      min-height: 100vh;
+      margin: 0;
+      overflow-x: hidden;
+      font-family: 'Montserrat', sans-serif;
+      line-height: 1.6;
+      color: #2c3e50;
+    }
+    
+    .login-container {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    
+    .login-form {
+      width: 100%;
+      max-width: 420px;
+    }
+    
+    .form-group {
+      margin-bottom: 20px;
+    }
+    
+    .form-label {
+      display: block;
+      margin-bottom: 8px;
+      font-weight: 600;
+      color: var(--asphalt);
+      font-size: 0.95rem;
+    }
+    
+    .form-input {
+      width: 100%;
+      padding: 14px 16px;
+      border: 1px solid #d1d8e0;
+      border-radius: 8px;
+      font-size: 0.95rem;
+      transition: all 0.3s ease;
+    }
+    
+    .form-input:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.2);
+    }
+    
+    .input-icon {
+      position: absolute;
+      left: 16px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: #64748b;
+    }
+    
+    .input-with-icon {
+      position: relative;
+    }
+    
+    .input-with-icon input {
+      padding-left: 48px;
+    }
+    
+    .password-toggle {
+      position: absolute;
+      right: 16px;
+      top: 50%;
+      transform: translateY(-50%);
+      background: none;
+      border: none;
+      color: #64748b;
+      cursor: pointer;
+    }
+    
+    .glass-panel {
+      background: rgba(255, 255, 255, 0.85);
+      backdrop-filter: blur(10px);
+      border-radius: 16px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.18);
+    }
+    
+    .btn {
+      padding: 12px 22px;
+      border-radius: 12px;
+      color: white;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.3s ease;
+      border: none;
+      cursor: pointer;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+      font-size: 0.95rem;
+    }
+    
+    .btn:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 6px 15px rgba(0,0,0,0.15);
+    }
+    
+    .btn-primary {
+      background: linear-gradient(to right, var(--asphalt), var(--primary));
+    }
+    
+    .notification {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      z-index: 1000;
+      animation: slideIn 0.5s ease, fadeOut 0.5s ease 2.5s forwards;
+      padding: 14px 20px;
+      border-radius: 10px;
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 0.95rem;
+      max-width: 350px;
+    }
+    
+    @keyframes slideIn {
+      from { transform: translateX(100%); opacity: 0; }
+      to { transform: translateX(0); opacity: 1; }
+    }
+    
+    @keyframes fadeOut {
+      from { opacity: 1; }
+      to { opacity: 0; visibility: hidden; }
+    }
+    
+    /* New styles for notification types */
+    .notification-success {
+      background: var(--success);
+      color: white;
+    }
+    
+    .notification-error {
+      background: var(--danger);
+      color: white;
+    }
+    
+    .notification-info {
+      background: var(--accent);
+      color: white;
+    }
+    
+    .notification-warning {
+      background: var(--warning);
+      color: white;
+    }
+  </style>
+</head>
+<body>
+  <!-- Admin Login Page -->
+  <div class="login-container">
+    <div class="login-form glass-panel p-8">
+      <!-- Logo -->
+      <div class="text-center mb-8">
+        <div class="ai-icon mx-auto mb-4" style="width: 70px; height: 70px;">
+          <i class="fas fa-lock" style="font-size: 1.8rem;"></i>
+        </div>
+        <h1 class="text-2xl font-bold text-gray-800">Admin Portal</h1>
+        <p class="text-gray-600 mt-2">Access your management dashboard</p>
+      </div>
+      
+      <!-- Login Form -->
+      <form id="admin-login-form">
+        <!-- Email -->
+        <div class="form-group">
+          <label class="form-label">Email</label>
+          <div class="input-with-icon">
+            <span class="input-icon">
+              <i class="fas fa-envelope"></i>
+            </span>
+            <input type="email" class="form-input" placeholder="admin@gmail.com" id="admin-email" required>
+          </div>
+        </div>
+        
+        <!-- Password -->
+        <div class="form-group">
+          <label class="form-label">Password</label>
+          <div class="input-with-icon">
+            <span class="input-icon">
+              <i class="fas fa-lock"></i>
+            </span>
+            <input type="password" class="form-input" placeholder="••••••••" id="admin-password" required>
+            <button type="button" class="password-toggle" id="password-toggle">
+              <i class="fas fa-eye"></i>
+            </button>
+          </div>
+        </div>
+        
+        <!-- Remember Me -->
+        <div class="flex items-center mb-6">
+          <input type="checkbox" id="remember-me" class="rounded border-gray-300 text-blue-600">
+          <label for="remember-me" class="ml-2 text-sm text-gray-600">Remember me</label>
+        </div>
+        
+        <!-- Submit Button -->
+        <button type="submit" class="btn btn-primary w-full">
+          <i class="fas fa-sign-in-alt mr-2"></i> Sign In
+        </button>
+      </form>
+      
+      <!-- Footer -->
+      <div class="text-center text-sm text-gray-500 mt-8">
+        © 2025 Paveiq. Admin Restricted Access
+      </div>
+    </div>
+  </div>
+  
+  <!-- Notification Container -->
+  <div id="notificationContainer"></div>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+
+      if (sessionStorage.getItem('logoutSuccess') === 'true') {
+        showNotification('You have been logged out successfully.', 'success');
+        sessionStorage.removeItem('logoutSuccess'); // Clear the flag
+      }
+
+      // DOM elements
+      const loginForm = document.getElementById('admin-login-form');
+      const passwordToggle = document.getElementById('password-toggle');
+      const passwordInput = document.getElementById('admin-password');
+      
+      // Toggle password visibility
+      passwordToggle.addEventListener('click', function() {
+        const icon = this.querySelector('i');
+        if (passwordInput.type === 'password') {
+          passwordInput.type = 'text';
+          icon.classList.remove('fa-eye');
+          icon.classList.add('fa-eye-slash');
+        } else {
+          passwordInput.type = 'password';
+          icon.classList.remove('fa-eye-slash');
+          icon.classList.add('fa-eye');
+        }
+      });
+      
+      // Login form submission
+      loginForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+
+        const email = document.getElementById('admin-email').value;
+        const password = document.getElementById('admin-password').value;
+
+        fetch('/admin/login', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/x-www-form-urlencoded'
+            },
+            body: `email=${encodeURIComponent(email)}&password=${encodeURIComponent(password)}`
+          })
+          .then(response => response.json())
+          .then(data => {
+            if (data.success) {
+              showNotification('Login successful! Redirecting to dashboard...', 'success');
+              setTimeout(() => {
+                window.location.href = '/admin/dashboard';
+              }, 1500);
+            } else {
+              showNotification(data.message, 'error');
+            }
+          })
+          .catch(error => {
+          showNotification('Error during login. Please try again.', 'error');
+          console.error('Login error:', error);
+        });
+      });
+      
+      // Enhanced notification function
+      function showNotification(message, type) {
+        const notificationContainer = document.getElementById('notificationContainer');
+        
+        // Clear any existing notifications
+        notificationContainer.innerHTML = '';
+        
+        // Create notification element
+        const notification = document.createElement('div');
+        notification.className = `notification notification-${type}`;
+        
+        // Set icon based on notification type
+        let iconClass = 'fa-info-circle';
+        switch(type) {
+          case 'success':
+            iconClass = 'fa-check-circle';
+            break;
+          case 'error':
+            iconClass = 'fa-exclamation-circle';
+            break;
+          case 'warning':
+            iconClass = 'fa-exclamation-triangle';
+            break;
+          case 'info':
+            iconClass = 'fa-info-circle';
+            break;
+        }
+        
+        notification.innerHTML = `
+          <i class="fas ${iconClass} text-lg"></i>
+          <p class="text-sm font-medium">${message}</p>
+        `;
+        
+        notificationContainer.appendChild(notification);
+        
+        // Remove notification after animation completes
+        setTimeout(() => {
+          notification.remove();
+        }, 3000);
+      }
+    });
+  </script>
+</body>
+</html>

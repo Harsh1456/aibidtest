@@ -1,0 +1,880 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Dashboard | AsphaltPro</title>
+
+  <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='favicon.ico') }}">
+
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&family=Open+Sans:wght@300;400;600&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    :root {
+      --primary: #1a2a3a;
+      --secondary: #f39c12;
+      --accent: #3498db;
+      --asphalt: #34495e;
+      --pavement: #7f8c8d;
+      --light-bg: #f5f7fa;
+      --card-gradient: linear-gradient(145deg, #ffffff, #f0f4f8);
+      --success: #27ae60;
+      --warning: #f39c12;
+      --danger: #e74c3c;
+    }
+    
+    body {
+      background: radial-gradient(circle at top right, #e0e7f0, #d1e0f0 40%, #e0e7f0 80%, #e0e7f0 100%);
+      min-height: 100vh;
+      margin: 0;
+      overflow-x: hidden;
+      font-family: 'Open Sans', sans-serif;
+      line-height: 1.6;
+      color: #2c3e50;
+    }
+
+    h1, h2, h3, h4, h5, .dashboard-title {
+      font-family: 'Montserrat', sans-serif;
+      font-weight: 600;
+    }
+
+    .card, .detail-card, .result-card {
+        font-family: 'Open Sans', sans-serif;
+    }
+    
+    .dashboard-header {
+      background: linear-gradient(120deg, var(--asphalt), var(--primary));
+      border-radius: 16px;
+      padding: 1.5rem;
+      margin-bottom: 1.5rem;
+      color: white;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+      position: relative;
+      overflow: hidden;
+    }
+    
+    .card {
+      background: var(--card-gradient);
+      border-radius: 16px;
+      box-shadow: 0 8px 25px rgba(0, 0, 0, 0.08);
+      overflow: hidden;
+      border-left: 4px solid var(--secondary);
+      position: relative;
+      margin-bottom: 1.5rem;
+    }
+    
+    .glass-panel {
+      background: rgba(255, 255, 255, 0.85);
+      backdrop-filter: blur(10px);
+      border-radius: 16px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.18);
+    }
+    
+    .tab-button {
+      padding: 14px 24px;
+      border-radius: 12px;
+      background: white;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      border: 2px solid transparent;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+      margin-right: 12px;
+      margin-bottom: 12px;
+      font-size: 0.95rem;
+    }
+    
+    .tab-button.active {
+      background: linear-gradient(to right, var(--asphalt), var(--primary));
+      color: white;
+      border-color: rgba(255, 255, 255, 0.3);
+    }
+
+    .tab-button.active, .tab-button:hover {
+        transition: all 0.4s ease;
+    }
+    
+    .tab-button.active:hover {
+        transform: scale(1.05);
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+    }
+
+    .tab-button:hover {
+        transform: scale(1.05);
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+    }
+    
+    .notification {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      z-index: 1000;
+      animation: slideIn 0.5s ease, fadeOut 0.5s ease 2.5s forwards;
+      padding: 14px 20px;
+      border-radius: 10px;
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 0.95rem;
+    }
+    
+    @keyframes slideIn {
+      from { transform: translateX(100%); opacity: 0; }
+      to { transform: translateX(0); opacity: 1; }
+    }
+    
+    @keyframes fadeOut {
+      from { opacity: 1; }
+      to { opacity: 0; visibility: hidden; }
+    }
+    
+    .btn {
+      padding: 12px 22px;
+      border-radius: 12px;
+      color: white;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.3s ease;
+      border: none;
+      cursor: pointer;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+      font-size: 0.95rem;
+    }
+    
+    .btn:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 6px 15px rgba(0,0,0,0.15);
+    }
+    
+    .btn-primary {
+      background: linear-gradient(to right, var(--asphalt), var(--primary));
+    }
+    
+    .btn-success {
+      background: linear-gradient(to right, var(--success), #2ecc71);
+    }
+    
+    .btn-danger {
+      background: linear-gradient(to right, var(--danger), #e67e22);
+    }
+
+    #remove-project {
+      background: linear-gradient(to right, var(--danger), #E74C3C);
+    }
+
+    #confirm-delete {
+      background: linear-gradient(to right, var(--danger), #E74C3C);
+    }
+    
+    #cancel-delete {
+      background: #e2e8f0;
+      color: #2d3748;
+    }
+
+    #cancel-delete:hover {
+      background: #cbd5e0;
+    }
+
+    .status-badge {
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+    
+    .status-pending {
+      background-color: rgba(243, 156, 18, 0.15);
+      color: var(--warning);
+    }
+    
+    .status-accepted {
+      background-color: rgba(39, 174, 96, 0.15);
+      color: var(--success);
+    }
+    
+    .status-rejected {
+      background-color: rgba(231, 76, 60, 0.15);
+      color: var(--danger);
+    }
+    
+    .project-table {
+      width: 100%;
+      border-collapse: separate;
+      border-spacing: 0;
+    }
+    
+    .project-table th {
+      background-color: #f8fafc;
+      text-align: left;
+      padding: 16px;
+      font-weight: 600;
+      color: var(--asphalt);
+      border-bottom: 2px solid #e2e8f0;
+    }
+    
+    .project-table td {
+      padding: 16px;
+      border-bottom: 1px solid #e2e8f0;
+      transition: background-color 0.2s ease;
+    }
+    
+    .project-table tr:hover td {
+      background-color: #f8fafc;
+    }
+    
+    .project-table tr:last-child td {
+      border-bottom: none;
+    }
+    
+    .project-link {
+      color: var(--accent);
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    
+    .project-link:hover {
+      color: var(--primary);
+      text-decoration: underline;
+    }
+    
+    .action-buttons {
+      display: flex;
+      gap: 8px;
+    }
+    
+    .action-btn {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    
+    .action-btn.view {
+      background-color: rgba(52, 152, 219, 0.15);
+      color: var(--accent);
+    }
+    
+    .action-btn.view:hover {
+      background-color: rgba(52, 152, 219, 0.25);
+    }
+    
+    .action-btn.delete {
+      background-color: rgba(231, 76, 60, 0.15);
+      color: var(--danger);
+    }
+    
+    .action-btn.delete:hover {
+      background-color: rgba(231, 76, 60, 0.25);
+    }
+    
+    .detail-card {
+      background: var(--card-gradient);
+      border-radius: 16px;
+      padding: 24px;
+      margin-bottom: 24px;
+      box-shadow: 0 5px 15px rgba(0, 0, 0, 0.08);
+      border-left: 4px solid var(--asphalt);
+    }
+    
+    .detail-section {
+      margin-bottom: 20px;
+    }
+    
+    .detail-section h3 {
+      font-size: 1.1rem;
+      font-weight: 700;
+      margin-bottom: 15px;
+      color: var(--primary);
+      border-bottom: 2px solid var(--accent);
+      padding-bottom: 10px;
+      display: inline-block;
+    }
+    
+    .detail-item {
+      display: flex;
+      justify-content: space-between;
+      border-bottom: 1px solid #f1f5f9;
+      font-size: 0.95rem;
+      transition: all 0.2s ease;
+      padding: 8px 0;
+      margin: 0;
+      align-items: center;
+    }
+    
+    .detail-item:hover {
+      background-color: #f8fafc;
+      border-radius: 6px;
+      padding: 10px 12px;
+    }
+    
+    .detail-item:last-child {
+      border-bottom: none;
+    }
+    
+    .detail-item span:first-child {
+      font-weight: 600;
+      color: var(--asphalt);
+      min-width: 45%;
+      padding-right: 10px;
+    }
+    
+    .detail-item span:last-child {
+      font-weight: 500;
+      color: var(--primary);
+      text-align: left;
+      min-width: 55%;
+    }
+    
+    .detail-actions {
+      display: flex;
+      gap: 16px;
+      margin-top: 20px;
+      justify-content: flex-end;
+    }
+    
+    .logo-animate {
+        animation: colorRotate 6s linear infinite;
+    }
+
+    #delete-confirm-modal {
+      animation: fadeIn 0.3s ease;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    .glass-panel {
+      background: rgba(255, 255, 255, 0.85);
+      backdrop-filter: blur(10px);
+      border-radius: 16px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.18);
+    }
+
+    @keyframes colorRotate {
+        0% {
+            filter: hue-rotate(0deg) saturate(1.5);
+        }
+        100% {
+            filter: hue-rotate(360deg) saturate(1.5);
+        }
+    }
+    
+    /* Responsive adjustments */
+    @media (max-width: 768px) {
+      .tab-button {
+        width: 100%;
+        margin-right: 0;
+        text-align: center;
+      }
+      
+      .project-table th, .project-table td {
+        padding: 12px;
+      }
+      
+      .detail-actions {
+        flex-direction: column;
+        gap: 12px;
+      }
+      
+      .btn {
+        width: 100%;
+        justify-content: center;
+      }
+    }
+  </style>
+</head>
+<body>
+  <!-- Admin Dashboard -->
+  <div id="admin-dashboard">
+    <!-- Navigation -->
+    <nav class="bg-white shadow-lg fixed top-0 left-0 w-full z-10">
+      <div class="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center">
+        <!-- Logo -->
+        <a href="/admin/dashboard" class="flex items-center">
+          <div class="ai-icon mr-3">
+            <i class="fas fa-robot"></i>
+          </div>
+          <span class="font-bold text-xl text-gray-800">Bid<span class="text-orange-500">Master</span> <span class="text-sm text-gray-500">Paveiq</span></span>
+        </a>
+        <div class="flex gap-6 items-center">
+          <button id="admin-logout" class="text-sm font-medium text-red-600 hover:text-red-800 transition-colors flex items-center">
+            <i class="fas fa-sign-out-alt mr-1"></i> 
+            <a href="{{ url_for('admin_logout') }}">Logout</a>
+          </button>
+        </div>
+      </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="pt-16 max-w-7xl mx-auto px-4 py-6">
+      <!-- Dashboard Header -->
+      <div class="dashboard-header">
+        <h1 class="dashboard-title font-bold">Admin Dashboard</h1>
+        <p class="dashboard-subtitle">Manage all bid projects and review submissions</p>
+      </div>
+      
+      <!-- Tabs -->
+      <div class="flex flex-wrap mb-6" id="admin-tabs-container">
+        <div class="tab-button active" data-tab="pending">Pending Review</div>
+        <div class="tab-button" data-tab="accepted">Accepted Projects</div>
+        <div class="tab-button" data-tab="rejected">Rejected Projects</div>
+        <div class="tab-button" data-tab="all">All Projects</div>
+      </div>
+      
+      <!-- Projects Table -->
+      <div class="card">
+        <div class="p-4 overflow-x-auto">
+          <table class="project-table">
+            <thead>
+              <tr>
+                <th>Project</th>
+                <th>Type</th>
+                <th>Location</th>
+                <th>Submitted</th>
+                <th>Status</th>
+                <th>Estimated Cost</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="projects-table-body">
+              {% for project in projects %}
+              <tr data-id="{{ project.id }}">
+                <td>
+                    <a href="/admin/projects/{{ project.id }}" class="project-link">{{ project.name }}</a>
+                </td>
+                <td>{{ project.type }}</td>
+                <td>{{ project.location }}</td>
+                <td>{{ project.submitted.strftime('%Y-%m-%d') }}</td>
+                <td>
+                  {% if project.status == 'pending' %}
+                    <span class="status-badge status-pending">
+                      <i class="fas fa-clock"></i> Pending
+                    </span>
+                  {% elif project.status == 'accepted' %}
+                    <span class="status-badge status-accepted">
+                      <i class="fas fa-check-circle"></i> Accepted
+                    </span>
+                  {% elif project.status == 'rejected' %}
+                    <span class="status-badge status-rejected">
+                      <i class="fas fa-times-circle"></i> Rejected
+                    </span>
+                  {% endif %}
+                </td>
+                <td>{{ project.cost }}</td>
+                <td>
+                  <div class="action-buttons">
+                    <a href="/admin/projects/{{ project.id }}" class="action-btn view">
+                      <i class="fas fa-eye"></i>
+                    </a>
+                    <div class="action-btn delete" data-id="{{ project.id }}">
+                      <i class="fas fa-trash-alt"></i>
+                    </div>
+                  </div>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- Confirmation for Deletion of project -->
+  <div id="delete-confirm-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden glass-panel">
+      <div class="p-6">
+        <div class="flex justify-center mb-4">
+          <i class="fas fa-exclamation-triangle text-3xl text-yellow-500"></i>
+        </div>
+        <h3 class="text-xl font-bold text-center mb-2">Confirm Deletion</h3>
+        <p class="text-gray-600 text-center mb-6" id="delete-modal-message">Are you sure you want to delete this project?</p>
+        <div class="flex justify-center gap-4">
+          <button id="cancel-delete" class="btn bg-gray-300 hover:bg-gray-400 text-gray-800 px-6">
+            Cancel
+          </button>
+          <button id="confirm-delete" class="btn btn-danger px-6">
+            <i class="fas fa-trash-alt mr-2"></i> Delete
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Notification Container -->
+  <div id="notificationContainer"></div>
+  <div class="text-center text-sm text-gray-500 mt-8">
+    © 2025 Paveiq. Admin Restricted Access
+  </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // DOM elements
+    const adminDashboard = document.querySelector('#admin-dashboard');
+    const projectDetail = document.getElementById('project-detail');
+    const logoutBtn = document.getElementById('admin-logout');
+    const detailLogoutBtn = document.getElementById('detail-logout');
+    const backToDashboardBtn = document.getElementById('back-to-dashboard');
+    const projectsTableBody = document.getElementById('projects-table-body');
+    const acceptProjectBtn = document.getElementById('accept-project');
+    const rejectProjectBtn = document.getElementById('reject-project');
+    const removeProjectBtn = document.getElementById('remove-project');
+
+    let pendingDeleteId = null;
+    const deleteModal = document.getElementById('delete-confirm-modal');
+    const cancelDeleteBtn = document.getElementById('cancel-delete'); // Get reference here
+    const confirmDeleteBtn = document.getElementById('confirm-delete'); // Get reference here
+    const deleteModalMessage = document.getElementById('delete-modal-message');
+
+    let currentProject = null;
+
+    // Logout
+    function logout() {
+        sessionStorage.setItem('logoutSuccess', 'true');
+        window.location.href = "{{ url_for('admin_logout') }}";
+    }
+    if (logoutBtn) logoutBtn.addEventListener('click', logout);
+    if (detailLogoutBtn) detailLogoutBtn.addEventListener('click', logout);
+
+    // Back to dashboard
+    if (backToDashboardBtn) {
+        backToDashboardBtn.addEventListener('click', function() {
+            projectDetail.classList.add('hidden');
+            adminDashboard.classList.remove('hidden');
+        });
+    }
+
+    // Notification
+    function showNotification(message, type) {
+        const container = document.getElementById('notificationContainer');
+        const notification = document.createElement('div');
+
+        let bgColor = 'bg-blue-100 text-blue-800';
+        let icon = 'fa-info-circle';
+        if (type === 'error') {
+            bgColor = 'bg-red-100 text-red-800';
+            icon = 'fa-exclamation-circle';
+        } else if (type === 'success') {
+            bgColor = 'bg-green-100 text-green-800';
+            icon = 'fa-check-circle';
+        } else if (type === 'warning') {
+            bgColor = 'bg-yellow-100 text-yellow-800';
+            icon = 'fa-exclamation-triangle';
+        }
+
+        notification.className = `notification ${bgColor}`;
+        notification.innerHTML = `
+            <i class="fas ${icon} text-lg"></i>
+            <p class="text-sm font-medium">${message}</p>
+        `;
+
+        container.appendChild(notification);
+        setTimeout(() => notification.remove(), 3000);
+    }
+
+    // Show project detail (this actually redirects, so no change needed here)
+    function showProjectDetail(projectId) {
+        window.location.href = `/admin/projects/${projectId}`;
+    }
+
+    // Populate project table
+    function populateProjectsTable(status) {
+        fetch(`/api/admin/projects?status=${status}`, { credentials: 'same-origin' })
+            .then(res => res.json())
+            .then(projects => {
+                projectsTableBody.innerHTML = '';
+                projects.forEach(project => {
+                    const row = document.createElement('tr');
+                    row.dataset.id = project.id;
+                    row.innerHTML = `
+                        <td>
+                            <a href="/admin/projects/${project.id}" class="project-link">${project.name}</a>
+                        </td>
+                        <td>${project.type}</td>
+                        <td>${project.location}</td>
+                        <td>${project.submitted}</td>
+                        <td>
+                            ${
+                                project.status === 'pending' ?
+                                '<span class="status-badge status-pending"><i class="fas fa-clock"></i> Pending</span>' :
+                                project.status === 'accepted' ?
+                                '<span class="status-badge status-accepted"><i class="fas fa-check-circle"></i> Accepted</span>' :
+                                '<span class="status-badge status-rejected"><i class="fas fa-times-circle"></i> Rejected</span>'
+                            }
+                        </td>
+                        <td>${project.cost}</td>
+                        <td>
+                            <div class="action-buttons">
+                                <a href="/admin/projects/${project.id}" class="action-btn view">
+                                    <i class="fas fa-eye"></i>
+                                </a>
+                                <div class="action-btn delete" data-id="${project.id}">
+                                    <i class="fas fa-trash-alt"></i>
+                                </div>
+                            </div>
+                        </td>
+                    `;
+                    projectsTableBody.appendChild(row);
+                });
+            })
+            .catch(() => showNotification('Failed to load projects', 'error'));
+    }
+
+    // Tab switching
+    const adminTabs = document.querySelectorAll('#admin-tabs-container .tab-button');
+    adminTabs.forEach(tab => {
+        tab.addEventListener('click', () => {
+            adminTabs.forEach(t => t.classList.remove('active'));
+            tab.classList.add('active');
+            const status = tab.dataset.tab;
+            populateProjectsTable(status);
+        });
+    });
+
+    // Table actions
+    projectsTableBody.addEventListener('click', function(e) {
+        const deleteBtn = e.target.closest('.action-btn.delete');
+        const projectLink = e.target.closest('.project-link');
+        const viewBtn = e.target.closest('.action-btn.view');
+
+        if (projectLink || viewBtn) {
+            const projectId = (projectLink || viewBtn).closest('tr').dataset.id;
+            showProjectDetail(projectId);
+        }
+        else if(deleteBtn) {
+            const row = deleteBtn.closest('tr');
+            const projectId = row.dataset.id;
+            // Ensure projectLink is found relative to the row for robustness
+            const projectNameElement = row.querySelector('.project-link');
+            const projectName = projectNameElement ? projectNameElement.textContent : 'this project';
+
+            // Set pending deletion and show modal
+            pendingDeleteId = projectId;
+            deleteModalMessage.textContent = `Are you sure you want to delete "${projectName}"? This action cannot be undone.`;
+            deleteModal.classList.remove('hidden');
+        }
+    });
+
+    // Accept project
+    if (acceptProjectBtn) {
+        acceptProjectBtn.addEventListener('click', function() {
+            // currentProject might not be set if directly coming to detail page.
+            // You might need to fetch current project details here or pass it through URL.
+            // Assuming currentProject is set by the page loading logic that shows project detail.
+            const projectIdFromSession = sessionStorage.getItem('currentProjectId');
+            const idToUse = currentProject ? currentProject.id : projectIdFromSession;
+
+            if (!idToUse) {
+                showNotification('Error: Project ID not found for acceptance.', 'error');
+                return;
+            }
+
+            fetch(`/api/admin/projects/${idToUse}/accept`, {
+                method: 'POST',
+                credentials: 'same-origin'
+            }).then(res => {
+                if (res.ok) {
+                    showNotification('Project accepted!', 'success');
+                    const statusBadge = document.getElementById('detail-project-status');
+                    if (statusBadge) {
+                        statusBadge.className = 'status-badge status-accepted';
+                        statusBadge.innerHTML = '<i class="fas fa-check-circle"></i> Accepted';
+                    }
+                    setTimeout(() => {
+                        showNotification('Status updated. Returning to dashboard...', 'info');
+                        setTimeout(() => {
+                            // Ensure these elements exist before manipulating classes
+                            if (projectDetail) projectDetail.classList.add('hidden');
+                            if (adminDashboard) adminDashboard.classList.remove('hidden');
+                            populateProjectsTable('pending');
+                        }, 1500);
+                    }, 1000);
+                } else {
+                    showNotification('Failed to accept project.', 'error');
+                }
+            }).catch(() => showNotification('Error communicating with server.', 'error'));
+        });
+    }
+
+
+    // Reject project
+    if (rejectProjectBtn) {
+        rejectProjectBtn.addEventListener('click', function() {
+            const projectIdFromSession = sessionStorage.getItem('currentProjectId');
+            const idToUse = currentProject ? currentProject.id : projectIdFromSession;
+
+            if (!idToUse) {
+                showNotification('Error: Project ID not found for rejection.', 'error');
+                return;
+            }
+
+            fetch(`/api/admin/projects/${idToUse}/reject`, {
+                method: 'POST',
+                credentials: 'same-origin'
+            }).then(res => {
+                if (res.ok) {
+                    showNotification('Project rejected.', 'warning');
+                    const badge = document.getElementById('detail-project-status');
+                    if (badge) {
+                        badge.className = 'status-badge status-rejected';
+                        badge.innerHTML = '<i class="fas fa-times-circle"></i> Rejected';
+                    }
+                    setTimeout(() => {
+                        showNotification('Status updated. Returning to dashboard...', 'info');
+                        setTimeout(() => {
+                            if (projectDetail) projectDetail.classList.add('hidden');
+                            if (adminDashboard) adminDashboard.classList.remove('hidden');
+                            populateProjectsTable('pending');
+                        }, 1500);
+                    }, 1000);
+                } else {
+                    showNotification('Failed to reject project.', 'error');
+                }
+            }).catch(() => showNotification('Error communicating with server.', 'error'));
+        });
+    }
+
+    // Remove project (from detail view)
+    if (removeProjectBtn) {
+        removeProjectBtn.addEventListener('click', function() {
+            const projectIdFromSession = sessionStorage.getItem('currentProjectId');
+            const idToUse = currentProject ? currentProject.id : projectIdFromSession;
+
+            if (!idToUse) {
+                showNotification('Error: Project ID not found for removal confirmation.', 'error');
+                return;
+            }
+
+            pendingDeleteId = idToUse;
+            // Try to get project name if possible, otherwise use a generic message
+            const projectName = currentProject ? currentProject.name : 'this project';
+            deleteModalMessage.textContent = `Are you sure you want to delete "${projectName}"? This action cannot be undone.`;
+            deleteModal.classList.remove('hidden');
+        });
+    }
+
+    // Confirmation Modal Buttons - These are the crucial ones
+    // Attach event listeners directly to the buttons once the DOM is loaded
+    if (cancelDeleteBtn) {
+        cancelDeleteBtn.addEventListener('click', function() {
+            deleteModal.classList.add('hidden');
+            pendingDeleteId = null;
+        });
+    }
+
+    if (confirmDeleteBtn) {
+        confirmDeleteBtn.addEventListener('click', function() {
+            if (pendingDeleteId) {
+                deleteProject(pendingDeleteId);
+                deleteModal.classList.add('hidden');
+                pendingDeleteId = null;
+            } else {
+                showNotification('Error: No project selected for deletion.', 'error');
+            }
+        });
+    }
+
+    // Delete project function
+    function deleteProject(projectId) {
+        fetch(`/api/admin/projects/${projectId}`, {
+            method: 'DELETE',
+            credentials: 'same-origin'
+        }).then(res => {
+            if (res.ok) {
+                showNotification('Project deleted!', 'success');
+                setTimeout(() => {
+                    showNotification('Redirecting back to dashboard...', 'info');
+                    setTimeout(() => {
+                        window.location.href = '/admin/dashboard';
+                    }, 1500);
+                }, 1000);
+            } else {
+                showNotification('Failed to delete project.', 'error');
+            }
+        }).catch(() => showNotification('Error communicating with server during deletion.', 'error'));
+    }
+
+    const downloadReportBtn = document.getElementById('download-report-btn');
+    if (downloadReportBtn) { // Added check for existence
+        downloadReportBtn.addEventListener('click', function() {
+            const projectId = sessionStorage.getItem('currentProjectId');
+            if (projectId) {
+                window.location.href = `/download_report/${projectId}`;
+            } else {
+                showNotification('No project selected to download report.', 'warning');
+            }
+        });
+    }
+
+    // Add CSV download option - Ensure this element is added only once
+    const existingDownloadCSVBtn = document.getElementById('download-csv-btn');
+    if (!existingDownloadCSVBtn) { // Check if it already exists
+        const downloadCSVBtn = document.createElement('button');
+        downloadCSVBtn.className = 'btn btn-primary ml-2';
+        downloadCSVBtn.innerHTML = '<i class="fas fa-file-csv mr-2"></i> Download CSV';
+        downloadCSVBtn.id = 'download-csv-btn';
+
+        const detailActions = document.querySelector('.detail-actions');
+        if (detailActions) { // Ensure the parent element exists
+            detailActions.appendChild(downloadCSVBtn);
+
+            downloadCSVBtn.addEventListener('click', function() {
+                const projectId = sessionStorage.getItem('currentProjectId');
+                if (projectId) {
+                    window.location.href = `/download_report_csv/${projectId}`;
+                } else {
+                    showNotification('No project selected to download CSV.', 'warning');
+                }
+            });
+        }
+    }
+
+
+    // Load initial tab based on URL
+    const urlParams = new URLSearchParams(window.location.search);
+    const initialStatus = urlParams.get('status') || 'pending';
+    populateProjectsTable(initialStatus);
+
+    // Initial setup of currentProject if coming from a project detail page load
+    // This assumes your Python backend renders a project detail page
+    // and might embed the project ID or you retrieve it from the URL.
+    // Example: If the URL is /admin/projects/123, you can parse 123.
+    const pathSegments = window.location.pathname.split('/');
+    if (pathSegments[1] === 'admin' && pathSegments[2] === 'projects' && pathSegments[3]) {
+        const projectIdFromUrl = pathSegments[3];
+        sessionStorage.setItem('currentProjectId', projectIdFromUrl); // Store it for other buttons
+        // You might want to fetch the project details here to populate currentProject
+        // fetch(`/api/admin/projects/${projectIdFromUrl}`)
+        //     .then(res => res.json())
+        //     .then(project => {
+        //         currentProject = project;
+        //         // Populate detail view
+        //     })
+        //     .catch(() => showNotification('Failed to load project details', 'error'));
+
+        // If you are loading the project details via a separate API call to populate the "projectDetail" section,
+        // make sure that call sets `currentProject` globally.
+        // For now, let's assume `currentProject` is populated when the detail page is rendered.
+    }
+});
+</script>
+
+</body>
+</html>

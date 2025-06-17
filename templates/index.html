@@ -1,0 +1,1376 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI-Powered Bid Assistant | AsphaltPro</title>
+
+  <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='favicon.ico') }}">
+
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&family=Open+Sans:wght@300;400;600&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    :root {
+      --primary: #1a2a3a;
+      --secondary: #f39c12;
+      --accent: #3498db;
+      --asphalt: #34495e;
+      --pavement: #7f8c8d;
+      --light-bg: #f5f7fa;
+      --card-gradient: linear-gradient(145deg, #ffffff, #f0f4f8);
+    }
+    
+    body {
+      background: radial-gradient(circle at top right, #e0e7f0, #d1e0f0 40%, #e0e7f0 80%, #e0e7f0 100%);
+      min-height: 100vh;
+      margin: 0;
+      overflow-x: hidden;
+      font-family: 'Open Sans', sans-serif;
+      line-height: 1.6;
+      color: #2c3e50;
+      padding-top: 60px;
+    }
+
+    h1, h2, h3, h4, h5, .dashboard-title {
+      font-family: 'Montserrat', sans-serif;
+      font-weight: 600;
+    }
+
+    .card, .detail-card, .result-card {
+        font-family: 'Open Sans', sans-serif;
+    }
+    
+    #ai-assistant-section {
+        position: relative;
+        z-index: 1000;
+        margin-top: 30px;
+    }
+
+    .dashboard-header {
+      background: linear-gradient(120deg, var(--asphalt), var(--primary));
+      border-radius: 16px;
+      padding: 1.5rem;
+      margin-bottom: 1.5rem;
+      color: white;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+      position: relative;
+      overflow: hidden;
+    }
+    
+    .card {
+      background: var(--card-gradient);
+      border-radius: 16px;
+      box-shadow: 0 8px 25px rgba(0, 0, 0, 0.08);
+      overflow: hidden;
+      border-left: 4px solid var(--secondary);
+      position: relative;
+      margin-bottom: 1.5rem;
+    }
+    
+    .file-upload-area {
+      border: 2px dashed #d1d8e0;
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.7);
+      transition: all 0.3s ease;
+      cursor: pointer;
+      position: relative;
+      z-index: 1;
+    }
+    
+    .file-upload-area:hover {
+      border-color: var(--secondary);
+      background: rgba(243, 156, 18, 0.05);
+    }
+    
+    .file-upload-area.active {
+      border-color: var(--accent);
+      background: rgba(52, 152, 219, 0.05);
+    }
+    
+    .upload-btn {
+      background: linear-gradient(to right, var(--asphalt), var(--primary));
+      transition: all 0.3s ease;
+      position: relative;
+      z-index: 1;
+      border: none;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+    }
+    
+    .upload-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 15px rgba(42, 57, 80, 0.3);
+      background: linear-gradient(to right, var(--primary), var(--asphalt));
+      
+    }
+    
+    .progress-bar {
+      height: 8px;
+      background: #e0e7f0;
+      border-radius: 4px;
+      overflow: hidden;
+      margin-top: 12px;
+      display: none;
+    }
+    
+    .progress-bar.visible {
+      display: block;
+    }
+    
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--secondary), var(--accent));
+      width: 0%;
+      transition: width 0.4s ease;
+      border-radius: 4px;
+    }
+    
+    /* Add this to your existing CSS */
+    .summary-card {
+      background: white !important;
+      border-radius: 16px !important;
+      padding: 20px !important;
+      box-shadow: 0 5px 15px rgba(0, 0, 0, 0.08) !important;
+      color: #2c3e50 !important;
+      border: 1px solid #e2e8f0 !important;
+    }
+
+    .summary-card h3 {
+      font-size: 1.1rem !important;
+      font-weight: 700 !important;
+      margin-bottom: 15px !important;
+      color: var(--primary) !important;
+      border-bottom: 2px solid var(--accent) !important;
+      padding-bottom: 10px !important;
+      display: inline-block !important;
+    }
+
+    .summary-item {
+      display: flex !important;
+      justify-content: space-between !important;
+      border-bottom: 1px solid #f1f5f9 !important;
+      font-size: 0.95rem !important;
+      transition: all 0.2s ease !important;
+      padding: 8px 0 !important; /* Reduce vertical padding */
+      margin: 0 !important; /* Remove any default margins */
+      align-items: center !important;
+    }
+
+    .summary-item:hover {
+      background-color: #f8fafc !important;
+      border-radius: 6px !important;
+      padding: 10px 12px !important;
+    }
+
+    .summary-item:last-child {
+      border-bottom: none !important;
+    }
+
+    .summary-item span:first-child {
+      font-weight: 600 !important;
+      color: var(--asphalt) !important;
+    }
+
+    .summary-item span:last-child {
+      font-weight: 500 !important;
+      color: var(--primary) !important;
+      text-align: right !important;
+    }
+
+    .summary-item span:first-child {
+      min-width: 45% !important; /* Allocate less space for labels */
+      padding-right: 10px !important; /* Add spacing between label and value */
+    }
+
+    .summary-item span:last-child {
+      min-width: 55% !important; /* Allocate more space for values */
+      text-align: left !important; /* Align values to left */
+      font-weight: 500 !important;
+    }
+
+    /* For financial values - keep them distinct */
+    #result-project-cost, 
+    #result-profit-margin, 
+    #result-success-probability {
+      font-weight: 600 !important;
+      color: #27ae60 !important; /* Green for positive financial values */
+    }
+    
+    .result-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 1rem;
+      margin: 20px 0;
+    }
+    
+    .result-card {
+      background: white;
+      border-radius: 10px;
+      padding: 20px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+      transition: transform 0.3s ease, box-shadow 0.3s ease;
+      margin-bottom: 20px;
+      overflow: hidden;
+    }
+
+    .result-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15);
+    }
+
+    /* Add this to your existing CSS */
+    .summary-card .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr; /* Equal columns */
+      gap: 2rem; /* Increased gap between columns */
+    }
+
+    .summary-section {
+      padding-right: 1.5rem; /* Add right padding to project summary */
+    }
+
+    .financial-section {
+      border-left: 1px solid #e2e8f0; /* Add separator line */
+      padding-left: 1.5rem; /* Add left padding to financial summary */
+    }
+
+    @media (max-width: 768px) {
+      .summary-card .grid {
+        grid-template-columns: 1fr; /* Single column on mobile */
+        gap: 1rem;
+      }
+      
+      .financial-section {
+        border-left: none;
+        padding-left: 0;
+        border-top: 1px solid #e2e8f0;
+        padding-top: 1.5rem;
+        margin-top: 1rem;
+      }
+    }
+    
+    .tab-button {
+      padding: 14px 24px;
+      border-radius: 12px;
+      background: white;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      border: 2px solid transparent;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+      margin-right: 12px;
+      margin-bottom: 12px;
+      font-size: 0.95rem;
+    }
+    
+    .tab-button.active {
+      background: linear-gradient(to right, var(--asphalt), var(--primary));
+      color: white;
+      border-color: rgba(255, 255, 255, 0.3);
+    }
+
+    .tab-button.active, .tab-button:hover {
+        transition: all 0.4s ease;
+    }
+    
+    .tab-button.active:hover {
+        transform: scale(1.05);
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+    }
+
+    .tab-button:hover {
+        transform: scale(1.05);
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+    }
+
+    .chart-container {
+      height: 250px; /* Increased height for better visibility */
+      margin-top: 15px;
+      position: relative; /* For better positioning */
+    }
+    
+    .ai-icon {
+      width: 46px;
+      height: 46px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(135deg, var(--asphalt), var(--primary));
+      color: white;
+      font-size: 1.1rem;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+      transition: all 0.3s ease;
+    }
+    
+    .ai-icon:hover {
+      transform: scale(1.1);
+      background: linear-gradient(135deg, var(--secondary), var(--accent));
+    }
+    
+    .notification {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      z-index: 1000;
+      animation: slideIn 0.5s ease, fadeOut 0.5s ease 2.5s forwards;
+      padding: 14px 20px;
+      border-radius: 10px;
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 0.95rem;
+    }
+    
+    @keyframes slideIn {
+      from { transform: translateX(100%); opacity: 0; }
+      to { transform: translateX(0); opacity: 1; }
+    }
+    
+    @keyframes fadeOut {
+      from { opacity: 1; }
+      to { opacity: 0; visibility: hidden; }
+    }
+    
+    .new-project-btn {
+      background: linear-gradient(to right, #27ae60, #2ecc71);
+      padding: 12px 22px;
+      border-radius: 12px;
+      color: white;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.3s ease;
+      border: none;
+      cursor: pointer;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+      font-size: 0.95rem;
+    }
+    
+    .new-project-btn:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 6px 15px rgba(0,0,0,0.15);
+    }
+    
+    .form-input {
+      width: 100%;
+      padding: 12px 14px;
+      border: 1px solid #d1d8e0;
+      border-radius: 8px;
+      font-size: 0.95rem;
+      transition: all 0.3s ease;
+    }
+    
+    .form-input:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.2);
+    }
+    
+    .form-label {
+      display: block;
+      margin-bottom: 6px;
+      font-weight: 600;
+      color: var(--asphalt);
+      font-size: 0.95rem;
+    }
+    
+    .dashboard-title {
+      font-size: 1.8rem;
+      margin-bottom: 0.5rem;
+    }
+    
+    .dashboard-subtitle {
+      font-size: 1.05rem;
+    }
+
+    .logo-animate {
+        animation: colorRotate 6s linear infinite;
+    }
+
+    @keyframes colorRotate {
+        0% {
+            filter: hue-rotate(0deg) saturate(1.5);
+        }
+        100% {
+            filter: hue-rotate(360deg) saturate(1.5);
+        }
+    }
+    
+    .optional-badge {
+      background-color: #e0e7f0;
+      color: #64748b;
+      border-radius: 4px;
+      padding: 2px 6px;
+      font-size: 0.75rem;
+      margin-left: 5px;
+      font-weight: normal;
+    }
+    
+    .required-badge {
+      color: #ef4444;
+      margin-left: 3px;
+    }
+    
+    .info-text {
+      font-size: 0.8rem;
+      color: #64748b;
+      margin-top: 4px;
+    }
+    
+    .area-info {
+      background: #f8fafc;
+      border-left: 3px solid #3498db;
+      padding: 8px 12px;
+      border-radius: 0 4px 4px 0;
+      margin-top: 10px;
+      font-size: 0.85rem;
+    }
+
+    /* Responsive adjustments */
+    @media (max-width: 1194px) {
+      .dashboard-header {
+        padding: 1.2rem;
+      }
+      
+      .card {
+        padding: 1.2rem;
+      }
+      
+      .result-grid {
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      }
+      
+      .tab-button {
+        padding: 12px 20px;
+        font-size: 0.9rem;
+      }
+    }
+    
+    @media (max-width: 768px) {
+      .dashboard-header {
+        padding: 1rem;
+      }
+      
+      .dashboard-title {
+        font-size: 1.5rem;
+      }
+      
+      .dashboard-subtitle {
+        font-size: 0.95rem;
+      }
+      
+      .tab-button {
+        width: 100%;
+        margin-right: 0;
+        text-align: center;
+      }
+      
+      .result-grid {
+        grid-template-columns: 1fr;
+      }
+      
+      .form-input {
+        padding: 10px 12px;
+      }
+      
+      .chart-container {
+        height: 300px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <!-- Navigation -->
+  <nav class="bg-white shadow-lg fixed top-0 left-0 w-full z-10">
+    <div class="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center">
+      <!-- Logo -->
+      <a href="#" class="flex items-center">
+        <div class="ai-icon mr-3">
+          <i class="fas fa-robot"></i>
+        </div>
+        <span class="font-bold text-xl text-gray-800">Bid<span class="text-orange-500">Master</span> <span class="text-sm text-gray-500">Paveiq</span></span>
+      </a>
+      <!-- <div class="flex gap-6">
+        <a href="#" class="text-sm font-medium text-gray-700 hover:text-blue-600 transition-colors">Home</a>
+        <a href="#" class="text-sm font-medium text-gray-700 hover:text-blue-600 transition-colors">Dashboard</a>
+      </div> -->
+    </div>
+  </nav>
+
+  <!-- Main Content -->
+  <main class="pt-16 max-w-7xl mx-auto px-4 py-6">
+    <!-- Dashboard Header -->
+    <div class="dashboard-header">
+      <h1 class="dashboard-title font-bold">AI-Powered Bid Assistant</h1>
+      <p class="dashboard-subtitle">Automate your RFP response process with AI-powered estimation and reporting for asphalt projects.</p>
+    </div>
+    
+    <!-- Input Section (Visible by default) -->
+    <div id="input-section">
+      <!-- Tabs -->
+      <div class="flex flex-wrap mb-6" id="tabs-container">
+        <div class="tab-button active" data-tab="pdf">Upload RFP PDF</div>
+        <div class="tab-button" data-tab="form">Enter Details Manually</div>
+      </div>
+      
+      <!-- PDF Upload Section -->
+      <div class="card" id="pdf-section">
+        <div class="p-4">
+          <div class="flex justify-between items-start mb-4">
+            <div>
+              <div class="ai-icon mb-3">
+                <i class="fas fa-file-pdf"></i>
+              </div>
+              <h3 class="font-semibold text-lg text-gray-800">Upload RFP Document</h3>
+              <p class="text-gray-600 text-sm">Upload your Request for Proposal PDF for automatic analysis</p>
+            </div>
+          </div>
+          
+          <div class="file-upload-area p-4 text-center mb-4">
+            <i class="fas fa-cloud-upload-alt text-gray-400 text-3xl mb-3"></i>
+            <p class="text-gray-600 mb-2 font-medium">Drag & drop PDF file here</p>
+            <p class="text-gray-500 text-xs mb-3">or</p>
+            <label class="cursor-pointer">
+              <span class="bg-gray-100 hover:bg-gray-200 text-gray-800 px-4 py-2 rounded-lg text-sm font-semibold transition-colors">Browse Files</span>
+              <input type="file" class="hidden" accept=".pdf,.docx" id="pdf-input">
+            </label>
+            <p class="file-name text-gray-500 text-xs mt-3">No file selected</p>
+          </div>
+          
+          <div class="progress-bar">
+            <div class="progress-fill"></div>
+          </div>
+          
+          <button class="upload-btn w-full py-3 rounded-lg text-white font-medium mt-4" id="pdf-upload-btn">
+            <i class="fas fa-upload mr-2"></i> Analyze RFP
+          </button>
+        </div>
+      </div>
+      
+      <!-- Form Input Section -->
+      <div class="card hidden" id="form-section">
+        <div class="p-4">
+          <div class="flex justify-between items-start mb-4">
+            <div>
+              <div class="ai-icon mb-3">
+                <i class="fas fa-keyboard"></i>
+              </div>
+              <h3 class="font-semibold text-lg text-gray-800">Enter Project Details</h3>
+              <p class="text-gray-600 text-sm">Provide project information to generate bid estimates</p>
+            </div>
+          </div>
+          
+          <form id="bid-form">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+              <div>
+                <label class="form-label">Project Name <span class="required-badge">*</span></label>
+                <input type="text" class="form-input" placeholder="Project Name" id="project-name" required>
+              </div>
+              
+              <div>
+                <label class="form-label">Project Type <span class="required-badge">*</span></label>
+                <select class="form-input" id="project-type" required>
+                  <option value="">Select project type</option>
+                  <option value="road">Road Construction</option>
+                  <option value="bridge">Bridge Construction</option>
+                  <option value="building">Building Construction</option>
+                  <option value="renovation">Renovation</option>
+                </select>
+              </div>
+              
+              <div>
+                <label class="form-label">Completion Date <span class="required-badge">*</span></label>
+                <input type="date" class="form-input" id="completion-date" required>
+              </div>
+              
+              <div>
+                <label class="form-label">Duration (Weeks) <span class="required-badge">*</span></label>
+                <input type="number" min="1" class="form-input" placeholder="Duration" id="project-duration" required>
+              </div>
+              
+              <div>
+                <label class="form-label">Location <span class="required-badge">*</span></label>
+                <input type="text" class="form-input" placeholder="Location" id="project-location" required>
+              </div>
+            </div>
+            
+            <h4 class="font-semibold text-md mb-3 text-gray-800 ">Resource Requirements</h4>
+            
+            <!-- In the Resource Requirements section -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+              <div>
+                <label class="form-label">Land-Mile <span class="required-badge">*</span></label>
+                <input type="number" min="0" class="form-input" placeholder="Land-Mile" id="land-mile">
+              </div>
+              
+              <div>
+                <label class="form-label">Width (ft) <span class="required-badge">*</span></label>
+                <input type="number" min="0" class="form-input" placeholder="Width in feet" id="width">
+              </div>
+              
+              <div>
+                <label class="form-label">Area (sq ft)</label>
+                <input type="number" class="form-input" placeholder="Area" id="project-area">
+              </div>
+              
+              <div>
+                <label class="form-label">Material Type <span class="required-badge">*</span></label>
+                <select class="form-input" id="material-type" required>
+                  <option value="">Select material</option>
+                  <option value="asphalt">Asphalt</option>
+                  <option value="recycled asphalt">Recycled Asphalt</option>
+                  <option value="concrete">Concrete</option>
+                  <option value="steel">Steel</option>
+                  <option value="composite">Composite</option>
+                  <option value="bituminous surface">Bituminous Surface</option>
+                  <option value="geotextile">Geotextile</option>
+                  <option value="sealcoat">Sealcoat</option>
+                </select>
+              </div>
+              
+              <div>
+                <label class="form-label">Tonnage</label>
+                <input type="number" min="0" class="form-input" placeholder="Tonnage" id="tonnage">
+              </div>
+            </div>
+            
+            <!-- Note Section -->
+            <div class="area-info mb-4">
+              <i class="fas fa-info-circle text-blue-500 mr-2"></i>
+              <strong>Note:</strong> If you provide both Land-Mile and Width(ft.), Then the Area(sq.ft.) will be automatically calculated.
+              And you can enter the value for Area(sq.ft.) manually, if you want to.
+              <br>
+              <div class="ml-16">
+                Tonnage will be calculated automatically based on Area(sq.ft.) and Material Type. You can enter it manually also if you want to.
+              </div>
+            </div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+              <div class="md:col-span-2">
+                <label class="form-label">Scope of Work <span class="required-badge">*</span></label>
+                <textarea class="form-input h-28" placeholder="Describe the scope of work" id="project-scope" required></textarea>
+              </div>
+              
+              <div class="md:col-span-2">
+                <label class="form-label">Special Requirements</label>
+                <textarea class="form-input h-28" placeholder="Any special requirements?" id="project-requirements"></textarea>
+              </div>
+            </div>
+            
+            <button type="button" class="upload-btn w-full py-3 rounded-lg text-white font-medium" id="form-submit-btn">
+              <i class="fas fa-bolt mr-2"></i> Generate Estimate
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Results Section (Hidden by default) -->
+    <div class="hidden" id="results-section">
+      <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-5 gap-3">
+        <div>
+          <h1 class="text-2xl font-bold text-gray-800">Bid Proposal Results</h1>
+          <p class="text-gray-600 text-sm">AI-generated estimate for your project</p>
+        </div>
+        <button class="new-project-btn" id="new-project-btn">
+          <i class="fas fa-plus mr-2"></i> New Project
+        </button>
+      </div>
+      
+      <div class="card">
+        <div class="p-4">
+          <div class="summary-card mb-6">
+            <div class="grid">
+              <div class="summary-section">
+                <h3 class="text-lg font-bold mb-3 text-primary flex items-center">
+                  <i class="fas fa-clipboard-list mr-2"></i> Project Summary
+                </h3>
+                <div class="summary-item flex justify-between">
+                  <span>Project Name:</span>
+                  <span id="result-project-name">City Highway Expansion</span>
+                </div>
+                <div class="summary-item flex justify-between">
+                  <span>Project Type:</span>
+                  <span id="result-project-type">Road Construction</span>
+                </div>
+                <div class="summary-item flex justify-between">
+                  <span>Location:</span>
+                  <span id="result-project-location">Downtown District</span>
+                </div>
+                <div class="summary-item flex justify-between">
+                  <span>Completion Date:</span>
+                  <span id="result-completion-date">2023-12-15</span>
+                </div>
+              </div>
+              
+              <div class="financial-section">
+                <h3 class="text-lg font-bold mb-3 text-primary flex items-center">
+                  <i class="fas fa-chart-line mr-2"></i> Financial Summary
+                </h3>
+                <div class="summary-item flex justify-between">
+                  <span>Estimated Cost:</span>
+                  <span id="result-project-cost">$245,780</span>
+                </div>
+                <div class="summary-item flex justify-between">
+                  <span>Profit Margin:</span>
+                  <span id="result-profit-margin">18.5%</span>
+                </div>
+                <div class="summary-item flex justify-between">
+                  <span>Success Probability:</span>
+                  <span id="result-success-probability">78%</span>
+                </div>
+                <div class="summary-item flex justify-between">
+                  <span>Tonnage:</span>
+                  <span id="result-tonnage">850 tons</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <div class="result-grid">
+            <div class="result-card">
+              <h3 class="font-semibold text-md mb-3 flex items-center">
+                <i class="fas fa-boxes mr-2 text-blue-600"></i> Material Estimates
+              </h3>
+              <div class="summary-item">
+                <span>Asphalt</span>
+                <span class="font-medium" id="result-asphalt">850 tons</span>
+              </div>
+              <div class="summary-item">
+                <span>Concrete</span>
+                <span class="font-medium" id="result-concrete">120 cubic yards</span>
+              </div>
+              <div class="summary-item">
+                <span>Rebar</span>
+                <span class="font-medium" id="result-rebar">2,800 lbs</span>
+              </div>
+              <div class="summary-item">
+                <span>Aggregate</span>
+                <span class="font-medium" id="result-aggregate">1,200 tons</span>
+              </div>
+            </div>
+            
+            <div class="result-card">
+              <h3 class="font-semibold text-md mb-3 flex items-center">
+                <i class="fas fa-user-clock mr-2 text-green-600"></i> Man-hour Forecast
+              </h3>
+              <div class="summary-item">
+                <span>Project Management</span>
+                <span class="font-medium" id="result-management-hours">320 hours</span>
+              </div>
+              <div class="summary-item">
+                <span>Site Preparation</span>
+                <span class="font-medium" id="result-prep-hours">480 hours</span>
+              </div>
+              <div class="summary-item">
+                <span>Paving Crew</span>
+                <span class="font-medium" id="result-paving-hours">1,240 hours</span>
+              </div>
+              <div class="summary-item">
+                <span>Finishing Work</span>
+                <span class="font-medium" id="result-finishing-hours">360 hours</span>
+              </div>
+            </div>
+            
+            <div class="result-card">
+              <h3 class="font-semibold text-md mb-3 flex items-center">
+                <i class="fas fa-tools mr-2 text-purple-600"></i> Equipment Requirements
+              </h3>
+              <div class="summary-item">
+                <span>Asphalt Pavers</span>
+                <span class="font-medium" id="result-pavers">2 units</span>
+              </div>
+              <div class="summary-item">
+                <span>Rollers</span>
+                <span class="font-medium" id="result-rollers">3 units</span>
+              </div>
+              <div class="summary-item">
+                <span>Excavators</span>
+                <span class="font-medium" id="result-excavators">1 unit</span>
+              </div>
+              <div class="summary-item">
+                <span>Dump Trucks</span>
+                <span class="font-medium" id="result-trucks">5 units</span>
+              </div>
+            </div>
+          </div>
+          
+          <div class="result-card">
+            <h3 class="font-semibold text-md mb-3 flex items-center">
+              <i class="fas fa-chart-pie mr-2 text-orange-500"></i> Pricing Model Breakdown
+            </h3>
+            <div class="chart-container">
+              <canvas id="pricingChart"></canvas>
+            </div>
+          </div>
+          
+          <div class="mt-6 text-center">
+            <button class="upload-btn py-2 px-5 rounded-lg text-white font-medium" id="download-btn">
+                <i class="fas fa-download mr-2"></i> Download Full Report
+            </button>
+            <button class="upload-btn py-2 px-5 rounded-lg text-white font-medium ml-3" id="download-csv-btn">
+                <i class="fas fa-file-csv mr-2"></i> Download CSV
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- Notification Container -->
+  <div id="notificationContainer"></div>
+
+  <script>
+    const MATERIAL_CONSTANTS = {
+      'asphalt': { density: 145, thickness: 0.33 },
+      'recycled asphalt': { density: 145, thickness: 0.25 },
+      'concrete': { density: 145, thickness: 0.42 },
+      'bituminous surface': { density: 145, thickness: 0.17 },
+      'steel': { density: 490, thickness: 0.08 },
+      'composite': { density: 160, thickness: 0.25 },
+      'geotextile': { density: 0.5, thickness: 0.01 },
+      'sealcoat': { density: 100, thickness: 0.02 }
+    };
+
+    document.addEventListener('DOMContentLoaded', function() {
+      // Tab switching
+      const tabs = document.querySelectorAll('.tab-button');
+      const pdfSection = document.getElementById('pdf-section');
+      const formSection = document.getElementById('form-section');
+      const inputSection = document.getElementById('input-section');
+      const resultsSection = document.getElementById('results-section');
+      const tabsContainer = document.getElementById('tabs-container');
+      
+      tabs.forEach(tab => {
+        tab.addEventListener('click', () => {
+          // Remove active class from all tabs
+          tabs.forEach(t => t.classList.remove('active'));
+          
+          // Add active class to clicked tab
+          tab.classList.add('active');
+          
+          // Show selected section
+          if (tab.dataset.tab === 'pdf') {
+            pdfSection.classList.remove('hidden');
+            formSection.classList.add('hidden');
+          } else {
+            pdfSection.classList.add('hidden');
+            formSection.classList.remove('hidden');
+          }
+        });
+      });
+      
+      // File upload functionality
+      const pdfInput = document.getElementById('pdf-input');
+      const pdfUploadBtn = document.getElementById('pdf-upload-btn');
+      const formSubmitBtn = document.getElementById('form-submit-btn');
+      const newProjectBtn = document.getElementById('new-project-btn');
+      const fileNameDisplay = pdfSection.querySelector('.file-name');
+      const uploadArea = pdfSection.querySelector('.file-upload-area');
+      const progressBar = pdfSection.querySelector('.progress-bar');
+      const progressFill = progressBar.querySelector('.progress-fill');
+      const downloadBtn = document.getElementById('download-btn');
+      
+      // Form elements
+      const projectName = document.getElementById('project-name');
+      const projectType = document.getElementById('project-type');
+      const completionDate = document.getElementById('completion-date');
+      const projectDuration = document.getElementById('project-duration');
+      const projectLocation = document.getElementById('project-location');
+      const projectScope = document.getElementById('project-scope');
+      const projectRequirements = document.getElementById('project-requirements');
+      const landMile = document.getElementById('land-mile');
+      const width = document.getElementById('width');
+      const projectArea = document.getElementById('project-area');
+      const materialType = document.getElementById('material-type');
+      const tonnageInput = document.getElementById('tonnage');
+      const areaRequiredBadge = document.getElementById('area-required');
+      
+      // Result elements
+      const resultProjectName = document.getElementById('result-project-name');
+      const resultProjectType = document.getElementById('result-project-type');
+      const resultProjectLocation = document.getElementById('result-project-location');
+      const resultCompletionDate = document.getElementById('result-completion-date');
+      const resultProjectCost = document.getElementById('result-project-cost');
+      const resultProfitMargin = document.getElementById('result-profit-margin');
+      const resultSuccessProbability = document.getElementById('result-success-probability');
+      const resultAsphalt = document.getElementById('result-asphalt');
+      const resultConcrete = document.getElementById('result-concrete');
+      const resultRebar = document.getElementById('result-rebar');
+      const resultAggregate = document.getElementById('result-aggregate');
+      const resultManagementHours = document.getElementById('result-management-hours');
+      const resultPrepHours = document.getElementById('result-prep-hours');
+      const resultPavingHours = document.getElementById('result-paving-hours');
+      const resultFinishingHours = document.getElementById('result-finishing-hours');
+      const resultPavers = document.getElementById('result-pavers');
+      const resultRollers = document.getElementById('result-rollers');
+      const resultExcavators = document.getElementById('result-excavators');
+      const resultTrucks = document.getElementById('result-trucks');
+      const resultTonnage = document.getElementById('result-tonnage');
+      
+
+      function calculateArea() {
+        const landMileVal = parseFloat(landMile.value) || 0;
+        const widthVal = parseFloat(width.value) || 0;
+        
+        if (landMileVal > 0 && widthVal > 0) {
+          const calculatedArea = (landMileVal * 5280) * widthVal;
+          projectArea.value = Math.round(calculatedArea);
+          updateTonnage(); // Update tonnage when area changes
+        }
+      }
+
+      // Function to calculate tonnage
+      function updateTonnage() {
+        const areaVal = parseFloat(projectArea.value) || 0;
+        const material = materialType.value;
+        const constants = MATERIAL_CONSTANTS[material];
+        
+        if (constants && areaVal > 0) {
+          const volume = areaVal * constants.thickness;
+          const weightLbs = volume * constants.density;
+          const tons = weightLbs / 2000;
+          tonnageInput.value = tons.toFixed(1);
+        }
+      }
+
+      // Handle area calculation and requirement
+      // Enhanced area calculation
+      function updateAreaRequirement() {
+        const landMileVal = parseFloat(landMile.value) || 0;
+        const widthVal = parseFloat(width.value) || 0;
+        
+        if (landMileVal > 0 && widthVal > 0) {
+          areaRequiredBadge.classList.remove('required-badge');
+          areaRequiredBadge.classList.add('optional-badge');
+          areaRequiredBadge.textContent = 'Optional';
+          
+          const calculatedArea = (landMileVal * 5280) * widthVal;
+          projectArea.value = Math.round(calculatedArea);
+          updateTonnage(); // NEW: Update tonnage when area changes
+        } else {
+          areaRequiredBadge.classList.remove('optional-badge');
+          areaRequiredBadge.classList.add('required-badge');
+          areaRequiredBadge.textContent = '*';
+        }
+      }
+      
+      // Tonnage Calculation
+      // Listen to input changes for land-mile and width
+      landMile.addEventListener('input', calculateArea);
+      width.addEventListener('input', calculateArea);
+      
+      // Listen to input changes for area and material
+      projectArea.addEventListener('input', updateTonnage);
+      materialType.addEventListener('change', updateTonnage);
+      
+      // Handle PDF file selection
+      pdfInput.addEventListener('change', function() {
+        if (this.files.length > 0) {
+          fileNameDisplay.textContent = this.files[0].name;
+          uploadArea.classList.add('active');
+        } else {
+          fileNameDisplay.textContent = 'No file selected';
+          uploadArea.classList.remove('active');
+        }
+      });
+      
+      // Drag and drop functionality
+      uploadArea.addEventListener('dragover', function(e) {
+        e.preventDefault();
+        this.classList.add('active');
+      });
+      
+      uploadArea.addEventListener('dragleave', function() {
+        this.classList.remove('active');
+      });
+      
+      uploadArea.addEventListener('drop', function(e) {
+        e.preventDefault();
+        this.classList.remove('active');
+        
+        if (e.dataTransfer.files.length) {
+          pdfInput.files = e.dataTransfer.files;
+          fileNameDisplay.textContent = e.dataTransfer.files[0].name;
+          this.classList.add('active');
+        }
+      });
+      
+      // PDF upload button
+      pdfUploadBtn.addEventListener('click', function() {
+        if (pdfInput.files.length === 0) {
+          showNotification('Please select a PDF or Word file first!', 'error');
+          return;
+        }
+        
+        const file = pdfInput.files[0];
+        const formData = new FormData();
+        formData.append('file', file);
+        
+        // Disable button during upload
+        this.disabled = true;
+        const originalText = this.innerHTML;
+        this.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Analyzing...';
+        
+        // Show progress bar
+        progressBar.classList.add('visible');
+        progressFill.style.width = '0%';
+        
+        // Simulate progress for UI (will be replaced by actual progress)
+        let progress = 0;
+        const progressInterval = setInterval(() => {
+          progress += 5;
+          progressFill.style.width = `${progress}%`;
+          if (progress >= 100) {
+            clearInterval(progressInterval);
+          }
+        }, 200);
+        
+        fetch('/upload_rfp', {
+          method: 'POST',
+          body: formData
+        })
+        .then(response => {
+          clearInterval(progressInterval);
+          if (!response.ok) {
+            return response.json().then(err => { throw new Error(err.error || 'Server error'); });
+          }
+          return response.json();
+        })
+        .then(data => {
+          if (data.error) {
+            throw new Error(data.error);
+          }
+          showNotification('File analyzed successfully!', 'success');
+          displayResults(data);
+          showResults();
+        })
+        .catch(error => {
+          showNotification('Analysis failed: ' + error.message, 'error');
+        })
+        .finally(() => {
+          this.innerHTML = originalText;
+          this.disabled = false;
+          progressBar.classList.remove('visible');
+          progressFill.style.width = '0%';
+        });
+      });
+      
+      // Form submission
+      formSubmitBtn.addEventListener('click', function() {
+        // Validate form
+        if (!projectName.value || !projectType.value || !completionDate.value || 
+            !projectDuration.value || !projectLocation.value || !projectScope.value) {
+            showNotification('Please fill in all required fields!', 'error');
+            return;
+        }
+
+        // Validate material type selection
+        if (!materialType.value) {
+            showNotification('Please select a material type!', 'error');
+            return;
+        }
+        
+        // Validate area based on land-mile and width
+        const landMileVal = parseFloat(landMile.value) || 0;
+        const widthVal = parseFloat(width.value) || 0;
+        const areaVal = parseFloat(projectArea.value) || 0;
+
+        if (areaVal <= 0) {
+            if (!(landMileVal > 0 && widthVal > 0)) {
+                showNotification(
+                    'Please provide either Area or both Land-Mile and Width', 
+                    'error'
+                );
+                return;
+            }
+        }
+        
+        // Disable button during processing
+        this.disabled = true;
+        const originalText = this.innerHTML;
+        this.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Processing...';
+        
+        // Prepare data for backend
+        const formData = {
+          project_name: projectName.value,
+          project_type: projectType.value,
+          project_location: projectLocation.value,
+          project_duration: projectDuration.value,
+          project_scope: projectScope.value,
+          project_requirements: projectRequirements.value,
+          material_type: materialType.value,
+          land_mile: landMile.value,
+          width: width.value,
+          project_area: projectArea.value,
+          tonnage: tonnage.value
+        };
+        
+        // Send data to backend
+        fetch('/calculate_estimate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(formData)
+        })
+        .then(res => {
+          if (!res.ok) {
+            return res.json().then(err => { throw err; });
+          }
+          return res.json();
+        })
+        .then(data => {
+          if (data.error) {
+            showNotification(data.error, 'error');
+            return;
+          }
+          
+          showNotification('Bid estimate generated!', 'success');
+          displayResults(data);
+          showResults();
+        })
+        .catch(error => {
+          let message = 'Failed to generate estimate. Please try again.';
+          if (error && error.error) {
+            message = error.error;
+            if (error.details) {
+              message += `: ${error.details}`;
+            }
+          }
+          showNotification(message, 'error');
+        })
+        .finally(() => {
+          this.innerHTML = originalText;
+          this.disabled = false;
+        });
+      });
+      
+      // Initialize charts - ADDED THIS FUNCTION
+      function initCharts() {
+        // Create empty chart as placeholder
+        const ctx = document.getElementById('pricingChart').getContext('2d');
+        window.pricingChart = new Chart(ctx, {
+          type: 'doughnut',
+          data: { labels: [], datasets: [{}] },
+          options: { responsive: true }
+        });
+      }
+
+      // New Project Button
+      newProjectBtn.addEventListener('click', function() {
+        // Hide results
+        resultsSection.classList.add('hidden');
+        
+        // Show input section and tabs
+        inputSection.classList.remove('hidden');
+        tabsContainer.classList.remove('hidden');
+        
+        // Reset form
+        document.getElementById('bid-form').reset();
+        
+        // Reset PDF input
+        pdfInput.value = '';
+        fileNameDisplay.textContent = 'No file selected';
+        uploadArea.classList.remove('active');
+        
+        // Reset progress bar
+        progressBar.classList.remove('visible');
+        progressFill.style.width = '0%';
+        
+        // Reset area requirement badge
+        areaRequiredBadge.classList.remove('optional-badge');
+        areaRequiredBadge.classList.add('required-badge');
+        areaRequiredBadge.textContent = '*';
+        
+        // Scroll to top
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      });
+      
+      // Function to show results
+      function showResults() {
+        inputSection.classList.add('hidden');
+        tabsContainer.classList.add('hidden');
+        resultsSection.classList.remove('hidden');
+        resultsSection.scrollIntoView({ behavior: 'smooth' });
+      }
+      
+      // Generate results from form data
+      // Display results from backend
+      function displayResults(data) {
+
+        sessionStorage.setItem('currentProjectId', data.project_id);
+        //window.currentProjectId = data.project_id;
+
+        // Project Summary
+        resultProjectName.textContent = data.project_summary.project_name;
+        resultProjectType.textContent = data.project_summary.project_type;
+        resultProjectLocation.textContent = data.project_summary.location;
+        resultCompletionDate.textContent = data.project_summary.completion_date;
+        resultTonnage.textContent = data.material_estimates.tonnage || 'Not specified';
+        
+        // Financial Summary
+        resultProjectCost.textContent = `$${data.financial_summary.total_cost.toLocaleString()}`;
+        resultProfitMargin.textContent = data.financial_summary.profit_margin;
+        resultSuccessProbability.textContent = data.success_probability;
+        
+        // Material Estimates
+        resultAsphalt.textContent = `${data.material_estimates.asphalt_tons || 0} tons`;
+        resultConcrete.textContent = `${data.material_estimates.concrete_yds || 0} cubic yards`;
+        resultRebar.textContent = `${data.material_estimates.rebar_lbs || 0} lbs`;
+        resultAggregate.textContent = `${data.material_estimates.aggregate_tons || 0} tons`;
+        
+        // Labor Estimates
+        resultManagementHours.textContent = `${data.labor_estimates.management_hours} hours`;
+        resultPrepHours.textContent = `${data.labor_estimates.prep_hours} hours`;
+        resultPavingHours.textContent = `${data.labor_estimates.paving_hours} hours`;
+        resultFinishingHours.textContent = `${data.labor_estimates.finishing_hours} hours`;
+        
+        // Equipment Estimates
+        resultPavers.textContent = `${data.equipment_estimates.pavers} units`;
+        resultRollers.textContent = `${data.equipment_estimates.rollers} units`;
+        resultExcavators.textContent = `${data.equipment_estimates.excavators} units`;
+        resultTrucks.textContent = `${data.equipment_estimates.trucks} units`;
+        
+        // Update chart with financial data
+        updateChart(data.financial_summary.cost_breakdown);
+
+        // PDF download button
+        document.getElementById('download-btn').onclick = function() {
+            const projectId = sessionStorage.getItem('currentProjectId');
+            if (projectId) {
+                window.location.href = `/download_report/${projectId}`;
+            } else {
+                showNotification('Project ID not found. Please generate the report again.', 'error');
+            }
+        };
+
+        // CSV File download
+        document.getElementById('download-csv-btn').onclick = function() {
+          const projectId = sessionStorage.getItem('currentProjectId');
+          if (projectId) {
+              window.location.href = `/download_report_csv/${projectId}`;
+          } else {
+              showNotification('Project ID not found. Please generate the report again.', 'error');
+          }
+        };
+      }
+      
+      // Update chart with financial data
+      function updateChart(costBreakdown) {
+        // Remove existing chart if it exists
+        if (window.pricingChart && typeof window.pricingChart.destroy === 'function') {
+          window.pricingChart.destroy();
+        }
+        
+        // Create new chart
+        const ctx = document.getElementById('pricingChart').getContext('2d');
+        window.pricingChart = new Chart(ctx, {
+          type: 'doughnut',
+          data: {
+            labels: ['Materials', 'Labor', 'Equipment', 'Overhead', 'Profit'],
+            datasets: [{
+              data: [
+                costBreakdown.materials,
+                costBreakdown.labor,
+                costBreakdown.equipment,
+                costBreakdown.overhead,
+                costBreakdown.profit
+              ],
+              backgroundColor: [
+                '#4361ee',
+                '#4cc9f0',
+                '#7209b7',
+                '#fbbf24',
+                '#4ade80'
+              ],
+              borderWidth: 0,
+              hoverOffset: 8,
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            cutout: '70%',
+            plugins: {
+              legend: {
+                position: 'bottom',
+                labels: {
+                  boxWidth: 12,
+                  padding: 15,
+                  font: {
+                    size: 10
+                  }
+                }
+              },
+              tooltip: {
+                callbacks: {
+                  label: function(context) {
+                    return `$${context.raw.toLocaleString()}`;
+                  }
+                }
+              }
+            },
+            interaction: {
+              mode: 'nearest',
+              intersect: false,
+            },
+            animation: {
+              animateScale: true,
+              animateRotate: true
+            },
+            layout: {
+              padding: {
+                top: 15,
+                bottom: 15,
+                left: 15,
+                right: 15
+              }
+            }
+          }
+        });
+      }
+      
+
+
+      // Notification function
+      function showNotification(message, type) {
+        const notificationContainer = document.getElementById('notificationContainer');
+        const notification = document.createElement('div');
+        
+        // Set notification styles based on type
+        let bgColor = 'bg-blue-100 text-blue-800';
+        let icon = 'fa-info-circle';
+        if (type === 'error') {
+          bgColor = 'bg-red-100 text-red-800';
+          icon = 'fa-exclamation-circle';
+        }
+        if (type === 'success') {
+          bgColor = 'bg-green-100 text-green-800';
+          icon = 'fa-check-circle';
+        }
+        
+        notification.className = `notification ${bgColor}`;
+        notification.innerHTML = `
+          <i class="fas ${icon} text-lg"></i>
+          <p class="text-sm font-medium">${message}</p>
+        `;
+        
+        notificationContainer.appendChild(notification);
+        
+        // Remove notification after animation completes
+        setTimeout(() => {
+          notification.remove();
+        }, 3000);
+      }
+      
+      // Initialize on page load
+      initCharts();
+    });
+  </script>
+</body>
+</html>
