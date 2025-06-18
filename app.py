@@ -32,9 +32,23 @@ client = OpenAI(api_key=os.environ.get('OPENAI_API_KEY'))  # OpenAI API
 
 # Configure Flask app settings
 app.config['ENV'] = os.environ.get('FLASK_ENV', 'production')
-app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL')
+
+# Database connection handling
+uri = os.environ.get('DATABASE_URL')
+if uri:
+    if uri.startswith("postgres://"):
+        uri = uri.replace("postgres://", "mysql+pymysql://", 1)
+    elif uri.startswith("mysql://"):
+        uri = uri.replace("mysql://", "mysql+pymysql://", 1)
+    
+    # Add SSL configuration for Railway
+    if "mysql+pymysql" in uri and "ssl_ca" not in uri:
+        uri += "?ssl_ca=/etc/ssl/cert.pem"
+    
+    app.config['SQLALCHEMY_DATABASE_URI'] = uri
+
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-db = SQLAlchemy(app)  # Initialize SQLAlchemy for database operations
+db = SQLAlchemy(app)
 
 # Admin credentials for dashboard access
 ADMIN_EMAIL = os.environ.get('ADMIN_EMAIL', 'admin@aibidmaster.com')
