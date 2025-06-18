@@ -115,6 +115,15 @@ class Project(db.Model):
     finishing_hours = db.Column(db.Integer)  # Finishing labor hours
 
 
+with app.app_context():
+    db.create_all()
+
+app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+    'pool_pre_ping': True,
+    'pool_recycle': 300,
+    'pool_size': 10,
+    'max_overflow': 20,
+}
 
 # Serve the main index page
 @app.route('/')
@@ -1354,8 +1363,6 @@ def generate_pdf_report(project):
     font_config = FontConfiguration()
     return HTML(string=html_content).write_pdf(font_config=font_config)
 
-with app.app_context():
-    db.create_all()
 
 
 # Main: Run the Flask app
