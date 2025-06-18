@@ -3,6 +3,8 @@ from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime, timedelta
 from flask_cors import CORS
 from dotenv import load_dotenv
+from urllib.parse import urlparse
+import pymysql
 import math
 import base64
 import os
@@ -37,16 +39,41 @@ app.config['ENV'] = os.environ.get('FLASK_ENV', 'production')
 # Database connection handling
 uri = os.environ.get('DATABASE_URL')
 if uri:
+    # Handle PostgreSQL URL if provided
     if uri.startswith("postgres://"):
         uri = uri.replace("postgres://", "mysql+pymysql://", 1)
-    elif uri.startswith("mysql://"):
-        uri = uri.replace("mysql://", "mysql+pymysql://", 1)
     
-    # Add SSL configuration without hardcoded path
-    if "mysql+pymysql" in uri and "ssl" not in uri:
-        uri += "?ssl=1"  # Enable SSL without specifying CA path
+    # Parse and reconstruct connection URL
+    parsed = urlparse(uri)
+    db_config = {
+        'username': parsed.username,
+        'password': parsed.password,
+        'hostname': parsed.hostname,
+        'port': parsed.port,
+        'database': parsed.path[1:],  # Remove leading '/'
+        'ssl_ca': '/etc/ssl/certs/ca-certificates.crt'
+    }
+    
+    # Construct SQLAlchemy connection string
+    app.config['SQLALCHEMY_DATABASE_URI'] = (
+        f"mysql+pymysql://{db_config['username']}:{db_config['password']}"
+        f"@{db_config['hostname']}:{db_config['port']}"
+        f"/{db_config['database']}"
+        f"?ssl_ca={db_config['ssl_ca']}"
+    )
 
-app.config['SQLALCHEMY_DATABASE_URI'] = uri
+# Configure connection pooling options
+app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+    'pool_pre_ping': True,
+    'pool_recycle': 300,
+    'pool_size': 10,
+    'max_overflow': 20,
+    'connect_args': {
+        'ssl': {
+            'ca': '/etc/ssl/certs/ca-certificates.crt'
+        }
+    }
+}
 
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
@@ -119,15 +146,10 @@ class Project(db.Model):
 with app.app_context():
     try:
         db.create_all()
+        logger.info("Database tables created successfully")
     except Exception as e:
         logger.error(f"Database creation error: {str(e)}")
-
-app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
-    'pool_pre_ping': True,
-    'pool_recycle': 300,
-    'pool_size': 10,
-    'max_overflow': 20,
-}
+        logger.exception(e)
 
 # Serve the main index page
 @app.route('/')
