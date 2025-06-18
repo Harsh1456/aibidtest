@@ -9,3 +9,4 @@ weasyprint
 python-dateutil
 pymysql
 gunicorn
+PyMySQL
