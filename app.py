@@ -34,6 +34,7 @@ client = OpenAI(api_key=os.environ.get('OPENAI_API_KEY'))  # OpenAI API
 app.config['ENV'] = os.environ.get('FLASK_ENV', 'production')
 
 # Database connection handling
+# Database connection handling
 uri = os.environ.get('DATABASE_URL')
 if uri:
     if uri.startswith("postgres://"):
@@ -41,11 +42,11 @@ if uri:
     elif uri.startswith("mysql://"):
         uri = uri.replace("mysql://", "mysql+pymysql://", 1)
     
-    # Add SSL configuration for Railway
-    if "mysql+pymysql" in uri and "ssl_ca" not in uri:
-        uri += "?ssl_ca=/etc/ssl/cert.pem"
-    
-    app.config['SQLALCHEMY_DATABASE_URI'] = uri
+    # Add SSL configuration without hardcoded path
+    if "mysql+pymysql" in uri and "ssl" not in uri:
+        uri += "?ssl=1"  # Enable SSL without specifying CA path
+
+app.config['SQLALCHEMY_DATABASE_URI'] = uri
 
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
@@ -116,7 +117,10 @@ class Project(db.Model):
 
 
 with app.app_context():
-    db.create_all()
+    try:
+        db.create_all()
+    except Exception as e:
+        logger.error(f"Database creation error: {str(e)}")
 
 app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
     'pool_pre_ping': True,
