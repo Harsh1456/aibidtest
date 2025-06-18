@@ -9,7 +9,6 @@ import os
 import re
 import csv
 import json
-from dateutil.parser import parse as parse_date
 import PyPDF2
 import openai
 from openai import OpenAI
