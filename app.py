@@ -39,30 +39,25 @@ app.config['ENV'] = os.environ.get('FLASK_ENV', 'production')
 # Database connection handling
 uri = os.environ.get('DATABASE_URL')
 if uri:
-    # Handle PostgreSQL URL if provided
     if uri.startswith("postgres://"):
         uri = uri.replace("postgres://", "mysql+pymysql://", 1)
     
-    # Parse and reconstruct connection URL
     parsed = urlparse(uri)
     db_config = {
         'username': parsed.username,
         'password': parsed.password,
         'hostname': parsed.hostname,
         'port': parsed.port,
-        'database': parsed.path[1:],  # Remove leading '/'
-        'ssl_ca': '/etc/ssl/certs/ca-certificates.crt'
+        'database': parsed.path[1:],
     }
     
-    # Construct SQLAlchemy connection string
     app.config['SQLALCHEMY_DATABASE_URI'] = (
         f"mysql+pymysql://{db_config['username']}:{db_config['password']}"
         f"@{db_config['hostname']}:{db_config['port']}"
         f"/{db_config['database']}"
-        f"?ssl_ca={db_config['ssl_ca']}"
     )
 
-# Configure connection pooling options
+# Use this for Railway SSL
 app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
     'pool_pre_ping': True,
     'pool_recycle': 300,
@@ -70,7 +65,8 @@ app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
     'max_overflow': 20,
     'connect_args': {
         'ssl': {
-            'ca': '/etc/ssl/certs/ca-certificates.crt'
+            'verify_cert': False,
+            'verify_identity': False
         }
     }
 }
