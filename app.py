@@ -3,14 +3,13 @@ from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime, timedelta
 from flask_cors import CORS
 from dotenv import load_dotenv
-from urllib.parse import urlparse
-import pymysql
 import math
 import base64
 import os
 import re
 import csv
 import json
+from dateutil.parser import parse as parse_date
 import PyPDF2
 import openai
 from openai import OpenAI
@@ -18,11 +17,8 @@ from docx import Document
 from io import BytesIO, StringIO
 from weasyprint import HTML
 from weasyprint.text.fonts import FontConfiguration
-import logging
 
-# Configure logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+
 # Load environment variables from .env file
 load_dotenv()
 
@@ -32,47 +28,12 @@ CORS(app)  # Enable Cross-Origin Resource Sharing
 app.secret_key = os.environ.get('SECRET_KEY')  # Set secret key for session management
 client = OpenAI(api_key=os.environ.get('OPENAI_API_KEY'))  # OpenAI API
 
+
 # Configure Flask app settings
 app.config['ENV'] = os.environ.get('FLASK_ENV', 'production')
-
-# Database connection handling
-# Database connection handling
-uri = os.environ.get('DATABASE_URL')
-if uri:
-    if uri.startswith("postgres://"):
-        uri = uri.replace("postgres://", "mysql+pymysql://", 1)
-    
-    parsed = urlparse(uri)
-    db_config = {
-        'username': parsed.username,
-        'password': parsed.password,
-        'hostname': parsed.hostname,
-        'port': parsed.port,
-        'database': parsed.path[1:],
-    }
-    
-    app.config['SQLALCHEMY_DATABASE_URI'] = (
-        f"mysql+pymysql://{db_config['username']}:{db_config['password']}"
-        f"@{db_config['hostname']}:{db_config['port']}"
-        f"/{db_config['database']}"
-    )
-
-# Use this for Railway SSL
-app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
-    'pool_pre_ping': True,
-    'pool_recycle': 300,
-    'pool_size': 10,
-    'max_overflow': 20,
-    'connect_args': {
-        'ssl': {
-            'verify_cert': False,
-            'verify_identity': False
-        }
-    }
-}
-
+app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-db = SQLAlchemy(app)
+db = SQLAlchemy(app)  # Initialize SQLAlchemy for database operations
 
 # Admin credentials for dashboard access
 ADMIN_EMAIL = os.environ.get('ADMIN_EMAIL', 'admin@aibidmaster.com')
@@ -112,7 +73,7 @@ MATERIAL_UNIT_COSTS = {
 # Project Model: Defines the database schema for storing project details
 class Project(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(255), nullable=False)  # Project name
+    name = db.Column(db.String(500), nullable=False)  # Project name
     type = db.Column(db.String(100), nullable=False)  # Project type (e.g., road)
     location = db.Column(db.String(255), nullable=False)  # Project location
     submitted = db.Column(db.Date, nullable=False)  # Submission date
@@ -139,13 +100,6 @@ class Project(db.Model):
     finishing_hours = db.Column(db.Integer)  # Finishing labor hours
 
 
-with app.app_context():
-    try:
-        db.create_all()
-        logger.info("Database tables created successfully")
-    except Exception as e:
-        logger.error(f"Database creation error: {str(e)}")
-        logger.exception(e)
 
 # Serve the main index page
 @app.route('/')
@@ -328,8 +282,6 @@ def extract_text_from_pdf(file):
         page_text = page.extract_text()
         if page_text:
             text += page_text + "\n"
-    if not text.strip():
-        logger.warning("No text extracted from PDF")
     return text
 
 # Extract text from DOCX files
@@ -346,14 +298,12 @@ def extract_text_from_docx(file):
                 if cell_text:
                     text += cell_text + "\n"
     if not text.strip():
-        logger.warning("No text extracted from DOCX")
         raise ValueError("No text found in DOCX.")
     return text
 
 # Extract RFP data using regex patterns
 def extract_rfp_data(text):
     """Extract project details from RFP text using regex patterns."""
-    logger.info("Starting regex-based RFP data extraction")
     data = {}
     
     # Normalize text for consistent matching
@@ -425,7 +375,7 @@ def extract_rfp_data(text):
                     data['concrete_yds'] = qty
                     data['material_type'] = material
             except ValueError:
-                logger.warning(f"Invalid quantity format: {q}")
+                pass
     
     # Calculate area if not provided
     if 'project_area' not in data and 'land_mile' in data and 'width' in data:
@@ -433,8 +383,8 @@ def extract_rfp_data(text):
             land_mile = float(data['land_mile'])
             width = float(data['width'])
             data['project_area'] = str(round((land_mile * 5280) * width))
-        except (ValueError, TypeError) as e:
-            logger.warning(f"Area calculation failed: {str(e)}")
+        except (ValueError, TypeError):
+            pass
     
     # Extract sections like scope and requirements
     section_patterns = [
@@ -465,22 +415,11 @@ def extract_rfp_data(text):
             if key in ['project_name', 'project_location', 'material_type']:
                 data[key] = data[key][0].upper() + data[key][1:] if data[key] else ''
     
-    # Infer project type if missing
-    if 'project_type' not in data:
-        if any(keyword in normalized_text for keyword in ['driveway', 'sidewalk']):
-            data['project_type'] = 'sidewalk'
-        elif 'road' in normalized_text or 'lane' in normalized_text:
-            data['project_type'] = 'road'
-        else:
-            data['project_type'] = 'general'
-    
-    logger.info(f"Regex extracted data: {data}")
     return data
 
 # Extract RFP data using OpenAI GPT
 def extract_fields_with_openai(text):
     """Use OpenAI GPT to extract structured data from RFP text."""
-    logger.info("Starting OpenAI GPT-based RFP data extraction")
     
     # Define prompt with examples and explicit instructions
     prompt = """
@@ -559,10 +498,8 @@ Return the JSON object. Ensure dates are in 'YYYY-MM-DD' format. For project_typ
             except:
                 data['completion_date'] = ''
         
-        logger.info(f"OpenAI extracted data: {data}")
         return data
     except Exception as e:
-        logger.error(f"OpenAI GPT extraction failed: {str(e)}\nRaw output: {content if 'content' in locals() else ''}")
         return {}
 
 # Handle RFP file upload
@@ -590,7 +527,6 @@ def upload_rfp():
         # Try OpenAI GPT extraction first, fall back to regex
         extracted_data = extract_fields_with_openai(text)
         if not extracted_data:
-            logger.info("Falling back to regex-based extraction")
             extracted_data = extract_rfp_data(text)
 
         # Set default values for missing fields
@@ -649,100 +585,22 @@ def upload_rfp():
         return process_estimate(data)
 
     except Exception as e:
-        logger.error(f"RFP processing failed: {str(e)}")
         return jsonify({
             'error': 'RFP processing failed',
             'details': str(e)
         }), 500
 
-# Handle RFP file upload
-# @app.route('/upload_rfp', methods=['POST'])
-# def upload_rfp():
-#     """Process uploaded RFP files (PDF or DOCX) and generate project estimates."""
-#     if 'file' not in request.files:
-#         return jsonify({'error': 'No file part'}), 400
-#     file = request.files['file']
-#     if file.filename == '':
-#         return jsonify({'error': 'No selected file'}), 400
-
-#     try:
-#         filename = file.filename.lower()
-#         file_data = file.read()
-#         file_stream = BytesIO(file_data)
-#         # Extract text based on file type
-#         if filename.endswith('.pdf'):
-#             text = extract_text_from_pdf(file_stream)
-#         elif filename.endswith('.docx'):
-#             text = extract_text_from_docx(file_stream)
-#         else:
-#             return jsonify({'error': 'Unsupported file type'}), 400
-
-#         # Extract data using OpenAI GPT
-#         extracted_data = extract_fields_with_openai(text)
-
-#         # Set default values for missing fields
-#         if not extracted_data.get('project_name'):
-#             extracted_data['project_name'] = f"Project from {file.filename}"
-#         if not extracted_data.get('project_type'):
-#             extracted_data['project_type'] = 'road'
-#         if not extracted_data.get('project_location'):
-#             extracted_data['project_location'] = 'Unknown Location'
-#         if not extracted_data.get('project_scope'):
-#             extracted_data['project_scope'] = 'Scope not extracted'
-
-#         # Calculate area if not provided
-#         if not extracted_data.get('project_area') and extracted_data.get('land_mile') and extracted_data.get('width'):
-#             try:
-#                 land_mile = float(extracted_data['land_mile'])
-#                 width_ft = float(extracted_data['width'])
-#                 if land_mile > 0 and width_ft > 0:
-#                     extracted_data['project_area'] = str(round((land_mile * 5280) * width_ft))
-#             except (ValueError, TypeError):
-#                 pass
-
-#         if not extracted_data.get('project_area'):
-#             return jsonify({
-#                 'error': 'Could not determine project area. Please provide area or land-mile+width in the document.',
-#                 'extracted_data': extracted_data
-#             }), 400
-
-#         # Prepare data for processing
-#         data = {
-#             'project_name': extracted_data.get('project_name'),
-#             'project_type': extracted_data.get('project_type', 'road'),
-#             'project_location': extracted_data.get('project_location'),
-#             'project_duration': extracted_data.get('project_duration', ''),
-#             'completion_date': extracted_data.get('completion_date', ''),
-#             'land_mile': extracted_data.get('land_mile', ''),
-#             'width': extracted_data.get('width', ''),
-#             'project_area': extracted_data.get('project_area'),
-#             'material_type': extracted_data.get('material_type', 'asphalt'),
-#             'tonnage': extracted_data.get('tonnage', ''),
-#             'project_scope': extracted_data.get('project_scope'),
-#             'project_requirements': extracted_data.get('project_requirements', '')
-#         }
-
-#         return process_estimate(data)
-
-#     except Exception as e:
-#         app.logger.error(f"RFP processing failed: {str(e)}")
-#         return jsonify({
-#             'error': 'RFP processing failed',
-#             'details': str(e)
-#         }), 500
-
 
 # Process project estimate
 def process_estimate(data):
     """Generate project estimate based on input data, including labor, materials, and financials."""
-    app.logger.info(f"Starting estimate processing with data: {data}")
 
     # Helper function to safely convert values to float
     def safe_float(value, default=0.0):
-        if not value or not str(value).strip():
+        if not value or not str(value).strip() or str(value).lower() == "undefined":
             return default
-        cleaned = re.sub(r'[^\d\.\-]', '', str(value))
         try:
+            cleaned = re.sub(r'[^\d.\-]', '', str(value))
             return float(cleaned)
         except ValueError:
             return default
@@ -775,7 +633,6 @@ def process_estimate(data):
                 }), 400
         
         if area_sqft <= 0:
-            app.logger.error(f"Invalid area calculation: land_mile={land_mile}, width={width_ft}, area_sqft={area_sqft}")
             return jsonify({
                 'error': 'Valid area required: Provide either area or land-mile+width',
                 'details': f"land_mile: {land_mile}, width: {width_ft}, calculated_area: {area_sqft}"
@@ -825,7 +682,10 @@ def process_estimate(data):
             'completion_date': completion_date.strftime('%Y-%m-%d'),
             'duration_weeks': duration_weeks,
             'area_sqft': round(area_sqft),
-            'material_type': material_type.capitalize()
+            'material_type': material_type.capitalize(),
+            'land_mile': land_mile,
+            'width': width_ft,
+            'tonnage': tonnage 
         }
         
         success_probability = calculate_success_probability(project_type, area_sqft, duration_weeks)
@@ -853,10 +713,10 @@ def process_estimate(data):
             concrete_yds=material_estimates.get('concrete_yds', 0),
             rebar_lbs=material_estimates.get('rebar_lbs', 0),
             aggregate_tons=material_estimates.get('aggregate_tons', 0),
-            management_hours=labor_estimates['management_hours'],
-            prep_hours=labor_estimates['prep_hours'],
-            paving_hours=labor_estimates['paving_hours'],
-            finishing_hours=labor_estimates['finishing_hours']
+            management_hours=labor_estimates.get('management_hours', 0),
+            prep_hours=labor_estimates.get('prep_hours', 0),
+            paving_hours=labor_estimates.get('paving_hours', 0),
+            finishing_hours=labor_estimates.get('finishing_hours', 0)
         )
         
         # Save to database
@@ -865,7 +725,6 @@ def process_estimate(data):
             db.session.commit()
         except Exception as e:
             db.session.rollback()
-            app.logger.error(f"Database error details: {str(e)}")
             return jsonify({
                 'error': 'Database operation failed',
                 'details': str(e)
@@ -885,7 +744,6 @@ def process_estimate(data):
         return jsonify(response), 200
     
     except Exception as e:
-        app.logger.error(f"Estimate calculation failed: {str(e)}")
         return jsonify({
             'error': 'Estimate calculation failed',
             'details': str(e)
@@ -979,9 +837,6 @@ def calculate_labor(area_sqft, duration_weeks, project_type, material_type, widt
     Calculate labor hours for a 7-person crew based on Virginia productivity rates.
     Handles narrow paths (width ≤ 3 ft) with higher productivity and adjusted phase distribution.
     """
-    # Log input parameters for debugging
-    app.logger.info(f"calculate_labor: area_sqft={area_sqft}, duration_weeks={duration_weeks}, project_type={project_type}, material_type={material_type}, width_ft={width_ft}")
-
     # Determine if project is a narrow path (width ≤ 3 ft)
     is_narrow = width_ft > 0 and width_ft <= 3
     # Set productivity rate based on project type and material
@@ -995,9 +850,6 @@ def calculate_labor(area_sqft, duration_weeks, project_type, material_type, widt
     else:
         sqft_per_crew_hour = 120  # General paving projects
     
-    # Log selected productivity rate
-    app.logger.info(f"Productivity rate: {sqft_per_crew_hour} sq ft/crew-hour, is_narrow={is_narrow}")
-
     # Define crew size and weekly capacity
     CREW_SIZE = 7  # Standard crew size for small Virginia projects
     HOURS_PER_WORKER_PER_WEEK = 40  # Standard work week
@@ -1026,18 +878,12 @@ def calculate_labor(area_sqft, duration_weeks, project_type, material_type, widt
         paving_pct = 0.50
         finishing_pct = 0.10
     
-    # Log phase distribution
-    app.logger.info(f"Phase distribution: management={management_pct}, prep={prep_pct}, paving={paving_pct}, finishing={finishing_pct}")
-
     # Distribute hours across phases
     management_hours = total_crew_hours * management_pct
     prep_hours = total_crew_hours * prep_pct
     paving_hours = total_crew_hours * paving_pct
     finishing_hours = total_crew_hours * finishing_pct
     
-    # Log calculated hours
-    app.logger.info(f"Calculated hours: total={total_crew_hours}, management={management_hours}, prep={prep_hours}, paving={paving_hours}, finishing={finishing_hours}")
-
     # Return rounded hours
     return {
         'management_hours': round(management_hours),
@@ -1203,6 +1049,8 @@ def download_report_csv(project_id):
     cw.writerow(['Status', project.status])
     cw.writerow(['Estimated Cost', project.cost])
     cw.writerow(['Completion Date', project.completion_date.strftime('%Y-%m-%d') if project.completion_date else ''])
+    cw.writerow(['Land-Mile', project.land_mile])
+    cw.writerow(['Width (ft)', project.width])
     cw.writerow(['Area (sq ft)', project.area])
     cw.writerow(['Material', project.material])
     cw.writerow(['Asphalt (tons)', project.asphalt_tons])
@@ -1246,8 +1094,17 @@ def generate_pdf_report(project):
             h1 {{ color: #2c3e50; margin-bottom: 5px; }}
             h2 {{ color: #3498db; border-bottom: 1px solid #eee; padding-bottom: 8px; margin-top: 25px; }}
             .subtitle {{ color: #7f8c8d; font-size: 1.1rem; }}
-            .project-info {{ background-color: #f8f9fa; border-radius: 8px; padding: 20px; margin-bottom: 30px; }}
-            .grid-container {{ display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }}
+            .project-info {{
+                background-color: #f8f9fa;
+                border-radius: 8px;
+                padding: 25px;
+                margin-bottom: 35px;
+                box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+            }}
+            .grid-container {{ display: grid; grid-template-columns: 1fr 1fr; gap: 30px; }}
+            .grid-container p {{
+                margin: 10px 0;
+            }}
             .section {{ margin-bottom: 25px; }}
             table {{ width: 100%; border-collapse: collapse; margin: 15px 0; }}
             th {{ background-color: #3498db; color: white; text-align: left; padding: 12px; }}
@@ -1292,29 +1149,21 @@ def generate_pdf_report(project):
                 <div>
                     <p><strong>Project Type:</strong> {project.type}</p>
                     <p><strong>Location:</strong> {project.location}</p>
-                    <p><strong>Submitted:</strong> {project.submitted.strftime('%Y-%m-%d')}</p>
+                    <p><strong>Land-mile:</strong> {project.land_mile} mile</p>
+                    <p><strong>Width:</strong> {project.width} ft</p>
+                    <p><strong>Area:</strong> {project.area} sq ft</p>
+                    <p><strong>Material:</strong> {project.material}</p>
+                </div>
+                <div>
+                    <p><strong>Estimated Cost:</strong> {project.cost}</p>
+                    <p><strong>Submitted on:</strong> {project.submitted.strftime('%Y-%m-%d')}</p>
+                    <p><strong>Completion Date:</strong> {project.completion_date.strftime('%Y-%m-%d') if project.completion_date else 'N/A'}</p>
+                    <p><strong>Tonnage:</strong> {project.tonnage} tons</p>
                     <p><strong>Status:</strong> 
                         <span class="status-badge status-{project.status}">{project.status.capitalize()}</span>
                     </p>
                 </div>
-                <div>
-                    <p><strong>Estimated Cost:</strong> {project.cost}</p>
-                    <p><strong>Completion Date:</strong> {project.completion_date.strftime('%Y-%m-%d') if project.completion_date else 'N/A'}</p>
-                    <p><strong>Area:</strong> {project.area} sq ft</p>
-                    <p><strong>Material:</strong> {project.material}</p>
-                </div>
             </div>
-        </div>
-        <div class="section">
-            <h2>Financial Summary</h2>
-            <table>
-                <tr>
-                    <td>Profit Margin</td>
-                    <td>{project.profit_margin}</td>
-                    <td>Success Probability</td>
-                    <td>{project.success_probability}</td>
-                </tr>
-            </table>
         </div>
         <div class="section">
             <h2>Resource Estimates</h2>
@@ -1367,6 +1216,21 @@ def generate_pdf_report(project):
             </table>
         </div>
         <div class="section">
+            <h2>Financial Summary</h2>
+            <table>
+                <tr>
+                    <td>Estimated Cost:</td>
+                    <td>{project.cost}</td>
+                    <td>Profit Margin:</td>
+                    <td>{project.profit_margin}</td>
+                </tr>
+                <tr>
+                    <td>Success Probability:</td>
+                    <td>{project.success_probability}</td>
+                </tr>
+            </table>
+        </div>
+        <div class="section">
             <h2>Project Scope</h2>
             <p>{project.scope}</p>
         </div>
@@ -1386,8 +1250,6 @@ def generate_pdf_report(project):
     return HTML(string=html_content).write_pdf(font_config=font_config)
 
 
-
 # Main: Run the Flask app
 if __name__ == '__main__':
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host='0.0.0.0', port=port)
+    app.run(host='0.0.0.0', port=5000, debug=False)
