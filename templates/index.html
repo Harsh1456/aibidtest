@@ -707,6 +707,18 @@
                   <span>Completion Date:</span>
                   <span id="result-completion-date">2023-12-15</span>
                 </div>
+                <div class="summary-item flex justify-between">
+                    <span>Land-Mile:</span>
+                    <span id="result-land-mile">2.5 mile</span>
+                </div>
+                <div class="summary-item flex justify-between">
+                    <span>Width:</span>
+                    <span id="result-width">24 ft</span>
+                </div>
+                <div class="summary-item flex justify-between">
+                    <span>Area:</span>
+                    <span id="result-area">5000 sq ft</span>
+                </div>
               </div>
               
               <div class="financial-section">
@@ -890,9 +902,12 @@
       const projectArea = document.getElementById('project-area');
       const materialType = document.getElementById('material-type');
       const tonnageInput = document.getElementById('tonnage');
-      const areaRequiredBadge = document.getElementById('area-required');
+      //const areaRequiredBadge = document.getElementById('area-required');
       
       // Result elements
+      const resultLandMile = document.getElementById('result-land-mile');
+      const resultWidth = document.getElementById('result-width');
+      const resultArea = document.getElementById('result-area');
       const resultProjectName = document.getElementById('result-project-name');
       const resultProjectType = document.getElementById('result-project-type');
       const resultProjectLocation = document.getElementById('result-project-location');
@@ -918,7 +933,7 @@
       function calculateArea() {
         const landMileVal = parseFloat(landMile.value) || 0;
         const widthVal = parseFloat(width.value) || 0;
-        
+
         if (landMileVal > 0 && widthVal > 0) {
           const calculatedArea = (landMileVal * 5280) * widthVal;
           projectArea.value = Math.round(calculatedArea);
@@ -931,7 +946,7 @@
         const areaVal = parseFloat(projectArea.value) || 0;
         const material = materialType.value;
         const constants = MATERIAL_CONSTANTS[material];
-        
+
         if (constants && areaVal > 0) {
           const volume = areaVal * constants.thickness;
           const weightLbs = volume * constants.density;
@@ -1202,63 +1217,69 @@
       // Generate results from form data
       // Display results from backend
       function displayResults(data) {
-
         sessionStorage.setItem('currentProjectId', data.project_id);
-        //window.currentProjectId = data.project_id;
+
+        const summary = data.project_summary || {};
+        const materials = data.material_estimates || {};
 
         // Project Summary
-        resultProjectName.textContent = data.project_summary.project_name;
-        resultProjectType.textContent = data.project_summary.project_type;
-        resultProjectLocation.textContent = data.project_summary.location;
-        resultCompletionDate.textContent = data.project_summary.completion_date;
-        resultTonnage.textContent = data.material_estimates.tonnage || 'Not specified';
-        
+        resultProjectName.textContent = summary.project_name || 'N/A';
+        resultProjectType.textContent = summary.project_type || 'N/A';
+        resultProjectLocation.textContent = summary.location || 'N/A';
+        resultCompletionDate.textContent = summary.completion_date || 'N/A';
+        resultLandMile.textContent = summary.land_mile !== undefined ? `${summary.land_mile} mile` : 'N/A';
+        resultWidth.textContent = summary.width !== undefined ? `${summary.width} ft` : 'N/A';
+        resultArea.textContent = summary.area_sqft !== undefined ? `${summary.area_sqft} sq ft` : 'N/A';
+        resultTonnage.textContent = summary.tonnage !== undefined ? `${summary.tonnage} tons` :
+                                    materials.asphalt_tons ? `${materials.asphalt_tons} tons` :
+                                    materials.concrete_yds ? `${materials.concrete_yds} yd³` : 'N/A';
+
         // Financial Summary
         resultProjectCost.textContent = `$${data.financial_summary.total_cost.toLocaleString()}`;
-        resultProfitMargin.textContent = data.financial_summary.profit_margin;
-        resultSuccessProbability.textContent = data.success_probability;
+        resultProfitMargin.textContent = data.financial_summary.profit_margin || 'N/A';
+        resultSuccessProbability.textContent = data.success_probability || 'N/A';
         
         // Material Estimates
-        resultAsphalt.textContent = `${data.material_estimates.asphalt_tons || 0} tons`;
-        resultConcrete.textContent = `${data.material_estimates.concrete_yds || 0} cubic yards`;
-        resultRebar.textContent = `${data.material_estimates.rebar_lbs || 0} lbs`;
-        resultAggregate.textContent = `${data.material_estimates.aggregate_tons || 0} tons`;
+        resultAsphalt.textContent = `${materials.asphalt_tons || 0} tons`;
+        resultConcrete.textContent = `${materials.concrete_yds || 0} cubic yards`;
+        resultRebar.textContent = `${materials.rebar_lbs || 0} lbs`;
+        resultAggregate.textContent = `${materials.aggregate_tons || 0} tons`;
         
         // Labor Estimates
-        resultManagementHours.textContent = `${data.labor_estimates.management_hours} hours`;
-        resultPrepHours.textContent = `${data.labor_estimates.prep_hours} hours`;
-        resultPavingHours.textContent = `${data.labor_estimates.paving_hours} hours`;
-        resultFinishingHours.textContent = `${data.labor_estimates.finishing_hours} hours`;
-        
+        resultManagementHours.textContent = `${data.labor_estimates.management_hours || 0} hours`;
+        resultPrepHours.textContent = `${data.labor_estimates.prep_hours || 0} hours`;
+        resultPavingHours.textContent = `${data.labor_estimates.paving_hours || 0} hours`;
+        resultFinishingHours.textContent = `${data.labor_estimates.finishing_hours || 0} hours`;
+
         // Equipment Estimates
-        resultPavers.textContent = `${data.equipment_estimates.pavers} units`;
-        resultRollers.textContent = `${data.equipment_estimates.rollers} units`;
-        resultExcavators.textContent = `${data.equipment_estimates.excavators} units`;
-        resultTrucks.textContent = `${data.equipment_estimates.trucks} units`;
-        
+        resultPavers.textContent = `${data.equipment_estimates.pavers || 0} units`;
+        resultRollers.textContent = `${data.equipment_estimates.rollers || 0} units`;
+        resultExcavators.textContent = `${data.equipment_estimates.excavators || 0} units`;
+        resultTrucks.textContent = `${data.equipment_estimates.trucks || 0} units`;
+
         // Update chart with financial data
         updateChart(data.financial_summary.cost_breakdown);
 
-        // PDF download button
-        document.getElementById('download-btn').onclick = function() {
-            const projectId = sessionStorage.getItem('currentProjectId');
-            if (projectId) {
-                window.location.href = `/download_report/${projectId}`;
-            } else {
-                showNotification('Project ID not found. Please generate the report again.', 'error');
-            }
-        };
-
-        // CSV File download
-        document.getElementById('download-csv-btn').onclick = function() {
+        // Download buttons
+        document.getElementById('download-btn').onclick = function () {
           const projectId = sessionStorage.getItem('currentProjectId');
           if (projectId) {
-              window.location.href = `/download_report_csv/${projectId}`;
+            window.location.href = `/download_report/${projectId}`;
           } else {
-              showNotification('Project ID not found. Please generate the report again.', 'error');
+            showNotification('Project ID not found. Please generate the report again.', 'error');
+          }
+        };
+
+        document.getElementById('download-csv-btn').onclick = function () {
+          const projectId = sessionStorage.getItem('currentProjectId');
+          if (projectId) {
+            window.location.href = `/download_report_csv/${projectId}`;
+          } else {
+            showNotification('Project ID not found. Please generate the report again.', 'error');
           }
         };
       }
+
       
       // Update chart with financial data
       function updateChart(costBreakdown) {
