@@ -31,9 +31,43 @@ client = OpenAI(api_key=os.environ.get('OPENAI_API_KEY'))  # OpenAI API
 
 # Configure Flask app settings
 app.config['ENV'] = os.environ.get('FLASK_ENV', 'production')
-app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL')
+uri = os.environ.get('DATABASE_URL')Add commentMore actions
+if uri:
+    if uri.startswith("postgres://"):
+        uri = uri.replace("postgres://", "mysql+pymysql://", 1)
+    
+    parsed = urlparse(uri)
+    db_config = {
+        'username': parsed.username,
+        'password': parsed.password,
+        'hostname': parsed.hostname,
+        'port': parsed.port,
+        'database': parsed.path[1:],
+    }
+    
+    app.config['SQLALCHEMY_DATABASE_URI'] = (
+        f"mysql+pymysql://{db_config['username']}:{db_config['password']}"
+        f"@{db_config['hostname']}:{db_config['port']}"
+        f"/{db_config['database']}"
+    )
+
+# Use this for Railway SSL
+app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+    'pool_pre_ping': True,
+    'pool_recycle': 300,
+    'pool_size': 10,
+    'max_overflow': 20,
+    'connect_args': {
+        'ssl': {
+            'verify_cert': False,
+            'verify_identity': False
+        }
+    }
+}
+
+
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-db = SQLAlchemy(app)  # Initialize SQLAlchemy for database operations
+db = SQLAlchemy(app)
 
 # Admin credentials for dashboard access
 ADMIN_EMAIL = os.environ.get('ADMIN_EMAIL', 'admin@aibidmaster.com')
