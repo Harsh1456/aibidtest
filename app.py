@@ -3,6 +3,8 @@ from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime, timedelta
 from flask_cors import CORS
 from dotenv import load_dotenv
+from urllib.parse import urlparse
+import pymysql
 import math
 import base64
 import os
