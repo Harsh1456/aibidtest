@@ -31,7 +31,7 @@ client = OpenAI(api_key=os.environ.get('OPENAI_API_KEY'))  # OpenAI API
 
 # Configure Flask app settings
 app.config['ENV'] = os.environ.get('FLASK_ENV', 'production')
-uri = os.environ.get('DATABASE_URL')Add commentMore actions
+uri = os.environ.get('DATABASE_URL')
 if uri:
     if uri.startswith("postgres://"):
         uri = uri.replace("postgres://", "mysql+pymysql://", 1)
