@@ -626,10 +626,7 @@
                   <option value="asphalt">Asphalt</option>
                   <option value="recycled asphalt">Recycled Asphalt</option>
                   <option value="concrete">Concrete</option>
-                  <option value="steel">Steel</option>
-                  <option value="composite">Composite</option>
                   <option value="bituminous surface">Bituminous Surface</option>
-                  <option value="geotextile">Geotextile</option>
                   <option value="sealcoat">Sealcoat</option>
                 </select>
               </div>
@@ -738,7 +735,7 @@
                   <span id="result-success-probability">78%</span>
                 </div>
                 <div class="summary-item flex justify-between">
-                  <span>Tonnage:</span>
+                  <span>Primary Material:</span>
                   <span id="result-tonnage">850 tons</span>
                 </div>
               </div>
@@ -750,21 +747,8 @@
               <h3 class="font-semibold text-md mb-3 flex items-center">
                 <i class="fas fa-boxes mr-2 text-blue-600"></i> Material Estimates
               </h3>
-              <div class="summary-item">
-                <span>Asphalt</span>
-                <span class="font-medium" id="result-asphalt">850 tons</span>
-              </div>
-              <div class="summary-item">
-                <span>Concrete</span>
-                <span class="font-medium" id="result-concrete">120 cubic yards</span>
-              </div>
-              <div class="summary-item">
-                <span>Rebar</span>
-                <span class="font-medium" id="result-rebar">2,800 lbs</span>
-              </div>
-              <div class="summary-item">
-                <span>Aggregate</span>
-                <span class="font-medium" id="result-aggregate">1,200 tons</span>
+              <div id="material-display">
+                <!-- Will be populated dynamically -->
               </div>
             </div>
             
@@ -1079,90 +1063,112 @@
       
       // Form submission
       formSubmitBtn.addEventListener('click', function() {
-        // Validate form
-        if (!projectName.value || !projectType.value || !completionDate.value || 
-            !projectDuration.value || !projectLocation.value || !projectScope.value) {
-            showNotification('Please fill in all required fields!', 'error');
-            return;
-        }
-
-        // Validate material type selection
-        if (!materialType.value) {
-            showNotification('Please select a material type!', 'error');
-            return;
-        }
-        
-        // Validate area based on land-mile and width
-        const landMileVal = parseFloat(landMile.value) || 0;
-        const widthVal = parseFloat(width.value) || 0;
-        const areaVal = parseFloat(projectArea.value) || 0;
-
-        if (areaVal <= 0) {
-            if (!(landMileVal > 0 && widthVal > 0)) {
-                showNotification(
-                    'Please provide either Area or both Land-Mile and Width', 
-                    'error'
-                );
-                return;
-            }
-        }
-        
-        // Disable button during processing
-        this.disabled = true;
-        const originalText = this.innerHTML;
-        this.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Processing...';
-        
-        // Prepare data for backend
-        const formData = {
-          project_name: projectName.value,
-          project_type: projectType.value,
-          project_location: projectLocation.value,
-          project_duration: projectDuration.value,
-          project_scope: projectScope.value,
-          project_requirements: projectRequirements.value,
-          material_type: materialType.value,
-          land_mile: landMile.value,
-          width: width.value,
-          project_area: projectArea.value,
-          tonnage: tonnage.value
-        };
-        
-        // Send data to backend
-        fetch('/calculate_estimate', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(formData)
-        })
-        .then(res => {
-          if (!res.ok) {
-            return res.json().then(err => { throw err; });
+          // Validate form
+          if (!projectName.value || !projectType.value || !completionDate.value || 
+              !projectDuration.value || !projectLocation.value || !projectScope.value) {
+              showNotification('Please fill in all required fields!', 'error');
+              return;
           }
-          return res.json();
-        })
-        .then(data => {
-          if (data.error) {
-            showNotification(data.error, 'error');
-            return;
+
+          // Validate material type selection
+          if (!materialType.value) {
+              showNotification('Please select a material type!', 'error');
+              return;
           }
           
-          showNotification('Bid estimate generated!', 'success');
-          displayResults(data);
-          showResults();
-        })
-        .catch(error => {
-          let message = 'Failed to generate estimate. Please try again.';
-          if (error && error.error) {
-            message = error.error;
-            if (error.details) {
-              message += `: ${error.details}`;
-            }
+          // Validate area based on land-mile and width
+          const landMileVal = parseFloat(landMile.value) || 0;
+          const widthVal = parseFloat(width.value) || 0;
+          const areaVal = parseFloat(projectArea.value) || 0;
+
+          if (areaVal <= 0) {
+              if (!(landMileVal > 0 && widthVal > 0)) {
+                  showNotification(
+                      'Please provide either Area or both Land-Mile and Width', 
+                      'error'
+                  );
+                  return;
+              }
           }
-          showNotification(message, 'error');
-        })
-        .finally(() => {
-          this.innerHTML = originalText;
-          this.disabled = false;
-        });
+          
+          // Disable button during processing
+          this.disabled = true;
+          const originalText = this.innerHTML;
+          this.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Processing...';
+          
+          // Prepare data for backend
+          const formData = {
+              project_name: projectName.value,
+              project_type: projectType.value,
+              project_location: projectLocation.value,
+              project_duration: projectDuration.value,
+              project_scope: projectScope.value,
+              project_requirements: projectRequirements.value,
+              material_type: materialType.value,
+              land_mile: landMile.value,
+              width: width.value,
+              project_area: projectArea.value,
+              tonnage: tonnage.value
+          };
+          
+          // Send data to backend
+          fetch('/calculate_estimate', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(formData)
+          })
+          .then(async res => {
+              const contentType = res.headers.get('content-type');
+              const isJson = contentType && contentType.includes('application/json');
+              const data = isJson ? await res.json() : null;
+              
+              if (!res.ok) {
+                  // Get error details
+                  let errorDetails = 'Unknown error';
+                  if (data && data.error) {
+                      errorDetails = data.error;
+                      if (data.details) errorDetails += `: ${data.details}`;
+                      if (data.traceback) console.error('Server Traceback:', data.traceback);
+                  } else if (data) {
+                      errorDetails = JSON.stringify(data);
+                  } else {
+                      errorDetails = await res.text();
+                  }
+                  
+                  throw new Error(errorDetails);
+              }
+              return data;
+          })
+          .then(data => {
+              if (data.error) {
+                  showNotification(data.error + (data.details ? `: ${data.details}` : ''), 'error');
+                  return;
+              }
+              
+              showNotification('Bid estimate generated!', 'success');
+              displayResults(data);
+              showResults();
+          })
+          .catch(error => {
+              let message = 'Failed to generate estimate. Please try again.';
+              if (error.message) {
+                  message = error.message;
+                  
+                  // Show detailed error message to user
+                  if (message.includes('traceback')) {
+                      // Don't show traceback to user, but log it
+                      console.error('Full error:', error.message);
+                      message = 'Server error occurred. Please check console for details.';
+                  }
+              }
+              
+              showNotification(message, 'error');
+              console.error('Error details:', error);
+          })
+          .finally(() => {
+              this.innerHTML = originalText;
+              this.disabled = false;
+          });
       });
       
       // Initialize charts - ADDED THIS FUNCTION
@@ -1221,41 +1227,60 @@
 
         const summary = data.project_summary || {};
         const materials = data.material_estimates || {};
+        const materialType = summary.material_type ? summary.material_type.toLowerCase() : '';
 
         // Project Summary
-        resultProjectName.textContent = summary.project_name || 'N/A';
-        resultProjectType.textContent = summary.project_type || 'N/A';
-        resultProjectLocation.textContent = summary.location || 'N/A';
-        resultCompletionDate.textContent = summary.completion_date || 'N/A';
-        resultLandMile.textContent = summary.land_mile !== undefined ? `${summary.land_mile} mile` : 'N/A';
-        resultWidth.textContent = summary.width !== undefined ? `${summary.width} ft` : 'N/A';
-        resultArea.textContent = summary.area_sqft !== undefined ? `${summary.area_sqft} sq ft` : 'N/A';
-        resultTonnage.textContent = summary.tonnage !== undefined ? `${summary.tonnage} tons` :
-                                    materials.asphalt_tons ? `${materials.asphalt_tons} tons` :
-                                    materials.concrete_yds ? `${materials.concrete_yds} yd³` : 'N/A';
+        setTextContent('result-project-name', summary.project_name || 'N/A');
+        setTextContent('result-project-type', summary.project_type || 'N/A');
+        setTextContent('result-project-location', summary.location || 'N/A');
+        setTextContent('result-completion-date', summary.completion_date || 'N/A');
+        setTextContent('result-land-mile', summary.land_mile !== undefined ? `${summary.land_mile} mile` : 'N/A');
+        setTextContent('result-width', summary.width !== undefined ? `${summary.width} ft` : 'N/A');
+        setTextContent('result-area', summary.area_sqft !== undefined ? `${summary.area_sqft} sq ft` : 'N/A');
+        
+        // Calculate total tonnage
+        let totalTonnage = 0;
+        if (materials.asphalt_tons) totalTonnage += materials.asphalt_tons;
+        if (materials.aggregate_tons) totalTonnage += materials.aggregate_tons;
+        setTextContent('result-tonnage', totalTonnage > 0 ? `${totalTonnage.toFixed(1)} tons` : 'N/A');
 
         // Financial Summary
-        resultProjectCost.textContent = `$${data.financial_summary.total_cost.toLocaleString()}`;
-        resultProfitMargin.textContent = data.financial_summary.profit_margin || 'N/A';
-        resultSuccessProbability.textContent = data.success_probability || 'N/A';
+        setTextContent('result-project-cost', `$${data.financial_summary.total_cost.toLocaleString()}`);
+        setTextContent('result-profit-margin', data.financial_summary.profit_margin || 'N/A');
+        setTextContent('result-success-probability', data.success_probability || 'N/A');
         
         // Material Estimates
-        resultAsphalt.textContent = `${materials.asphalt_tons || 0} tons`;
-        resultConcrete.textContent = `${materials.concrete_yds || 0} cubic yards`;
-        resultRebar.textContent = `${materials.rebar_lbs || 0} lbs`;
-        resultAggregate.textContent = `${materials.aggregate_tons || 0} tons`;
+        generateMaterialDisplay(data.material_estimates, materialType);
+        
+        // Update Primary Material in Financial Summary
+        let primaryMaterial = 'N/A';
+        
+        if (materialType === 'bituminous surface' && materials.bituminous_tons !== undefined) {
+          primaryMaterial = `${materials.bituminous_tons.toLocaleString()} tons`;
+        }
+        else if (materialType === 'sealcoat' && materials.sealcoat_sqft !== undefined) {
+          primaryMaterial = `${materials.sealcoat_sqft.toLocaleString()} sq ft`;
+        }
+        else if (materialType === 'asphalt' && materials.asphalt_tons !== undefined) {
+          primaryMaterial = `${materials.asphalt_tons.toLocaleString()} tons`;
+        }
+        else if (materialType === 'concrete' && materials.concrete_yds !== undefined) {
+          primaryMaterial = `${materials.concrete_yds.toLocaleString()} cubic yards`;
+        }
+        
+        setTextContent('result-tonnage', primaryMaterial);
         
         // Labor Estimates
-        resultManagementHours.textContent = `${data.labor_estimates.management_hours || 0} hours`;
-        resultPrepHours.textContent = `${data.labor_estimates.prep_hours || 0} hours`;
-        resultPavingHours.textContent = `${data.labor_estimates.paving_hours || 0} hours`;
-        resultFinishingHours.textContent = `${data.labor_estimates.finishing_hours || 0} hours`;
+        setTextContent('result-management-hours', `${data.labor_estimates.management_hours || 0} hours`);
+        setTextContent('result-prep-hours', `${data.labor_estimates.prep_hours || 0} hours`);
+        setTextContent('result-paving-hours', `${data.labor_estimates.paving_hours || 0} hours`);
+        setTextContent('result-finishing-hours', `${data.labor_estimates.finishing_hours || 0} hours`);
 
         // Equipment Estimates
-        resultPavers.textContent = `${data.equipment_estimates.pavers || 0} units`;
-        resultRollers.textContent = `${data.equipment_estimates.rollers || 0} units`;
-        resultExcavators.textContent = `${data.equipment_estimates.excavators || 0} units`;
-        resultTrucks.textContent = `${data.equipment_estimates.trucks || 0} units`;
+        setTextContent('result-pavers', `${data.equipment_estimates.pavers || 0} units`);
+        setTextContent('result-rollers', `${data.equipment_estimates.rollers || 0} units`);
+        setTextContent('result-excavators', `${data.equipment_estimates.excavators || 0} units`);
+        setTextContent('result-trucks', `${data.equipment_estimates.trucks || 0} units`);
 
         // Update chart with financial data
         updateChart(data.financial_summary.cost_breakdown);
@@ -1280,6 +1305,101 @@
         };
       }
 
+      // Helper functions to prevent null errors
+      function setTextContent(elementId, text) {
+        const element = document.getElementById(elementId);
+        if (element) element.textContent = text;
+      }
+
+      function resetMaterialDisplay() {
+        ['asphalt', 'concrete', 'rebar', 'aggregate', 'sealcoat'].forEach(mat => {
+          const container = document.getElementById(`material-${mat}`);
+          if (container) container.style.display = 'none';
+        });
+      }
+
+      function showMaterial(materialId, materialName, quantity) {
+        const container = document.getElementById(`material-${materialId}`);
+        if (container) {
+          container.style.display = 'flex';
+          const nameSpan = container.querySelector('span:first-child');
+          const quantitySpan = container.querySelector('span:last-child');
+          if (nameSpan) nameSpan.textContent = `${materialName}:`;
+          if (quantitySpan) quantitySpan.textContent = quantity;
+        }
+      }
+
+
+      function generateMaterialDisplay(materials, materialType) {
+        const container = document.getElementById('material-display');
+        container.innerHTML = ''; // Clear previous content
+        
+
+        if (materialType === 'bituminous surface') {
+          if (materials.bituminous_tons !== undefined) {
+            container.innerHTML += `
+              <div class="summary-item">
+                <span>Bituminous Surface</span>
+                <span class="font-medium">${materials.bituminous_tons.toLocaleString()} tons</span>
+              </div>
+            `;
+          }
+          if (materials.aggregate_tons !== undefined) {
+            container.innerHTML += `
+              <div class="summary-item">
+                <span>Aggregate</span>
+                <span class="font-medium">${materials.aggregate_tons.toLocaleString()} tons</span>
+              </div>
+            `;
+          }
+        }
+        else if (materialType.includes('asphalt') || materialType.includes('bituminous')) {
+          if (materials.asphalt_tons !== undefined) {
+            container.innerHTML += `
+              <div class="summary-item">
+                <span>${materialType.charAt(0).toUpperCase() + materialType.slice(1)}</span>
+                <span class="font-medium">${materials.asphalt_tons.toLocaleString()} tons</span>
+              </div>
+            `;
+          }
+          if (materials.aggregate_tons !== undefined) {
+            container.innerHTML += `
+              <div class="summary-item">
+                <span>Aggregate</span>
+                <span class="font-medium">${materials.aggregate_tons.toLocaleString()} tons</span>
+              </div>
+            `;
+          }
+        } 
+        else if (materialType.includes('concrete')) {
+          if (materials.concrete_yds !== undefined) {
+            container.innerHTML += `
+              <div class="summary-item">
+                <span>Concrete</span>
+                <span class="font-medium">${materials.concrete_yds.toLocaleString()} cubic yards</span>
+              </div>
+            `;
+          }
+          if (materials.rebar_lbs !== undefined) {
+            container.innerHTML += `
+              <div class="summary-item">
+                <span>Rebar</span>
+                <span class="font-medium">${materials.rebar_lbs.toLocaleString()} lbs</span>
+              </div>
+            `;
+          }
+        } 
+        else if (materialType === 'sealcoat') {
+          if (materials.sealcoat_sqft !== undefined) {
+            container.innerHTML += `
+              <div class="summary-item">
+                <span>Sealcoat</span>
+                <span class="font-medium">${materials.sealcoat_sqft.toLocaleString()} sq ft</span>
+              </div>
+            `;
+          }
+        }
+      }
       
       // Update chart with financial data
       function updateChart(costBreakdown) {
