@@ -533,22 +533,34 @@
             
             <div class="detail-section">
               <h3>Material Estimates</h3>
-              <div class="detail-item">
-                <span>Asphalt:</span>
-                <span id="detail-asphalt">{{ project.asphalt_tons or 'N/A' }} tons</span>
-              </div>
-              <div class="detail-item">
-                <span>Concrete:</span>
-                <span id="detail-concrete">{{ project.concrete_yds or 'N/A' }} cubic yards</span>
-              </div>
-              <div class="detail-item">
-                <span>Rebar:</span>
-                <span id="detail-rebar">{{ project.rebar_lbs or 'N/A' }} lbs</span>
-              </div>
-              <div class="detail-item">
-                <span>Aggregate:</span>
-                <span id="detail-aggregate">{{ project.aggregate_tons or 'N/A' }} tons</span>
-              </div>
+              {% if project.material.lower() in ['asphalt', 'recycled asphalt', 'bituminous surface'] %}
+                <div class="detail-item">
+                  <span>{{ project.material }}:</span>
+                  <span>{{ project.asphalt_tons }} tons</span>
+                </div>
+                {% if project.aggregate_tons %}
+                <div class="detail-item">
+                  <span>Aggregate:</span>
+                  <span>{{ project.aggregate_tons }} tons</span>
+                </div>
+                {% endif %}
+              {% elif project.material.lower() == 'concrete' %}
+                <div class="detail-item">
+                  <span>Concrete:</span>
+                  <span>{{ project.concrete_yds }} cubic yards</span>
+                </div>
+                {% if project.rebar_lbs %}
+                <div class="detail-item">
+                  <span>Rebar:</span>
+                  <span>{{ project.rebar_lbs }} lbs</span>
+                </div>
+                {% endif %}
+              {% elif project.material.lower() == 'sealcoat' %}
+                <div class="detail-item">
+                  <span>Sealcoat:</span>
+                  <span>{{ project.area }} sq ft</span>
+                </div>
+              {% endif %}
             </div>
           </div>
           
