@@ -530,69 +530,94 @@
                 <span id="detail-probability">{{ project.success_probability }}</span>
               </div>
             </div>
-            
             <div class="detail-section">
-              <h3>Material Estimates</h3>
-              {% if project.material.lower() in ['asphalt', 'recycled asphalt', 'bituminous surface'] %}
+                <h3>Cost Breakdown</h3>
                 <div class="detail-item">
-                  <span>{{ project.material }}:</span>
-                  <span>{{ project.asphalt_tons }} tons</span>
+                  <span>Materials:</span>
+                  <span>${{ project.cost_breakdown.materials | round | int }}</span>
                 </div>
-                {% if project.aggregate_tons %}
                 <div class="detail-item">
-                  <span>Aggregate:</span>
-                  <span>{{ project.aggregate_tons }} tons</span>
+                  <span>Labor:</span>
+                  <span>${{ project.cost_breakdown.labor | round | int }}</span>
                 </div>
-                {% endif %}
-              {% elif project.material.lower() == 'concrete' %}
                 <div class="detail-item">
-                  <span>Concrete:</span>
-                  <span>{{ project.concrete_yds }} cubic yards</span>
+                  <span>Equipment:</span>
+                  <span>${{ project.cost_breakdown.equipment | round | int }}</span>
                 </div>
-                {% if project.rebar_lbs %}
                 <div class="detail-item">
-                  <span>Rebar:</span>
-                  <span>{{ project.rebar_lbs }} lbs</span>
+                  <span>Overhead:</span>
+                  <span>${{ project.cost_breakdown.overhead | round | int }}</span>
                 </div>
-                {% endif %}
-              {% elif project.material.lower() == 'sealcoat' %}
                 <div class="detail-item">
-                  <span>Sealcoat:</span>
-                  <span>{{ project.area }} sq ft</span>
+                  <span>Profit:</span>
+                  <span>${{ project.cost_breakdown.profit | round | int }}</span>
                 </div>
-              {% endif %}
-            </div>
+              </div>
           </div>
           
-          <!-- Man-hour Forecast -->
-          <div class="detail-card md:col-span-2">
-            <h2 class="text-lg font-bold mb-4 flex items-center">
-              <i class="fas fa-user-clock mr-2 text-purple-600"></i> Man-hour Forecast
-            </h2>
+          
+            <!-- Material Estimates Card -->
+            <div class="detail-card">
+              <h2 class="text-lg font-bold mb-4 flex items-center">
+                <i class="fas fa-boxes mr-2 text-blue-600"></i> Material Estimates
+              </h2>
+              <div class="detail-section">
+                {% if project.material.lower() in ['asphalt', 'recycled asphalt', 'bituminous surface'] %}
+                  <div class="detail-item">
+                    <span>{{ project.material }}:</span>
+                    <span>{{ project.asphalt_tons }} tons</span>
+                  </div>
+                  {% if project.aggregate_tons %}
+                  <div class="detail-item">
+                    <span>Aggregate:</span>
+                    <span>{{ project.aggregate_tons }} tons</span>
+                  </div>
+                  {% endif %}
+                {% elif project.material.lower() == 'concrete' %}
+                  <div class="detail-item">
+                    <span>Concrete:</span>
+                    <span>{{ project.concrete_yds }} cubic yards</span>
+                  </div>
+                  {% if project.rebar_lbs %}
+                  <div class="detail-item">
+                    <span>Rebar:</span>
+                    <span>{{ project.rebar_lbs }} lbs</span>
+                  </div>
+                  {% endif %}
+                {% elif project.material.lower() == 'sealcoat' %}
+                  <div class="detail-item">
+                    <span>Sealcoat:</span>
+                    <span>{{ project.area }} sq ft</span>
+                  </div>
+                {% endif %}
+              </div>
+            </div>
             
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
+            <!-- Man-hour Forecast Card -->
+            <div class="detail-card">
+              <h2 class="text-lg font-bold mb-4 flex items-center">
+                <i class="fas fa-user-clock mr-2 text-purple-600"></i> Man-hour Forecast
+              </h2>
+              <div class="detail-section">
                 <div class="detail-item">
                   <span>Project Management:</span>
-                  <span id="detail-management">{{ project.management_hours }} hours</span>
+                  <span>{{ project.management_hours }} hours</span>
                 </div>
                 <div class="detail-item">
                   <span>Site Preparation:</span>
-                  <span id="detail-prep">{{ project.prep_hours }} hours</span>
+                  <span>{{ project.prep_hours }} hours</span>
                 </div>
-              </div>
-              <div>
                 <div class="detail-item">
                   <span>Paving Crew:</span>
-                  <span id="detail-paving">{{ project.paving_hours }} hours</span>
+                  <span>{{ project.paving_hours }} hours</span>
                 </div>
                 <div class="detail-item">
                   <span>Finishing Work:</span>
-                  <span id="detail-finishing">{{ project.finishing_hours }} hours</span>
+                  <span>{{ project.finishing_hours }} hours</span>
                 </div>
               </div>
             </div>
-          </div>
+          
           
           <!-- Scope & Requirements -->
           <div class="detail-card md:col-span-2">
