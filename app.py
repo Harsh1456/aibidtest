@@ -76,35 +76,44 @@ ADMIN_EMAIL = os.environ.get('ADMIN_EMAIL', 'admin@aibidmaster.com')
 ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', 'Admin@1235')
 
 # Virginia-specific constants (2025, VDOT and RSMeans standards)
-ASPHALT_DENSITY = 150  # lbs per cubic foot, VDOT average for hot-mix asphalt (HMA)
-ASPHALT_THICKNESS = 0.33  # feet (4 inches), typical for Virginia roads
+ASPHALT_DENSITY = 145  # lbs per cubic foot, VDOT average for hot-mix asphalt (HMA)
+RECYCLED_DENSITY = 140  # lbs per cubic foot for recycled asphalt
 CONCRETE_DENSITY = 150  # lbs per cubic foot
-CONCRETE_THICKNESS = 0.5  # feet (6 inches), VDOT standard for concrete pavements
 LABOR_RATE = 62.50  # $/hour, Virginia union labor rates, 2025
 MATERIAL_MARKUP = 1.15  # 15% markup, standard for Virginia contractors
 EQUIPMENT_RATE_MULTIPLIER = 1.12  # 12% markup for equipment overhead
 PROFIT_MARGIN = 0.10  # 10% profit margin, competitive for VDOT projects
 OVERHEAD_RATE = 0.12  # 12% overhead, typical for Virginia construction
 
+
 # Material unit costs (Virginia market rates, 2025)
 MATERIAL_UNIT_COSTS = {
     'asphalt': 110,                # $/ton
-    'concrete': 170,               # $/cubic yard
-    'aggregate base': 42,          # $/ton
     'recycled asphalt': 85,        # $/ton
+    'concrete': 170,               # $/cubic yard
     'bituminous surface': 120,     # $/ton
-    'subbase': 32,                 # $/ton
-    'geotextile': 1.50,            # $/sq yd
-    'emulsion': 4.00,              # $/gallon
     'sealcoat': 0.55,              # $/sq ft
-    'thermoplastic striping': 3.00,# $/linear ft
-    'curb': 45,                    # $/linear ft (concrete)
-    'sidewalk': 15,                # $/sq ft (concrete)
-    'pavers': 22,                  # $/sq ft
     'rebar': 0.80,                 # $/lb
-    'drainage pipe': 42,           # $/linear ft
-    'stormwater structure': 3000,  # $/each
+    'aggregate base': 42           # $/ton
 }
+
+# Material thickness standards (in feet)
+THICKNESS = {
+    'asphalt': 0.33,          # 4 inches
+    'recycled asphalt': 0.25, # 3 inches
+    'bituminous surface': 0.17, # 2 inches
+    'concrete': 0.42,         # 6 inches
+    'sealcoat': 0.02          # 0.25 inches
+}
+
+MATERIAL_CONSTANTS = {
+    'asphalt': {'density': 145, 'thickness': 0.33},  # VDOT standard HMA
+    'recycled asphalt': {'density': 140, 'thickness': 0.25},  # Virginia recycled mix
+    'concrete': {'density': 150, 'thickness': 0.42},  # VDOT concrete spec
+    'bituminous surface': {'density': 145, 'thickness': 0.17},  # Virginia surface treatment
+    'sealcoat': {'density': 100, 'thickness': 0.02}   # Sealcoat
+}
+
 
 # Project Model: Defines the database schema for storing project details
 class Project(db.Model):
@@ -128,6 +137,8 @@ class Project(db.Model):
     success_probability = db.Column(db.String(20))  # Success probability
     asphalt_tons = db.Column(db.Float)  # Asphalt quantity in tons
     concrete_yds = db.Column(db.Float)  # Concrete quantity in cubic yards
+    bituminous_tons = db.Column(db.Float)
+    sealcoat_sqft = db.Column(db.Float)
     rebar_lbs = db.Column(db.Float)  # Rebar quantity in pounds
     aggregate_tons = db.Column(db.Float)  # Aggregate quantity in tons
     management_hours = db.Column(db.Integer)  # Management labor hours
@@ -647,17 +658,13 @@ def process_estimate(data):
         project_type = data.get('project_type', 'road')
         location = data.get('project_location', 'Unknown Location')
         scope = data.get('project_scope', '')
-        if not scope or not scope.strip():
-            scope = 'Scope not provided'
         project_requirements = data.get('project_requirements', '')
-        if not project_requirements:
-            project_requirements = ''
-        material_type = data.get('material_type', 'asphalt')
-        tonnage = safe_float(data.get('tonnage'))
+        material_type = data.get('material_type', 'asphalt').lower()
+        tonnage = safe_float(data.get('tonnage', 0))
         
-        land_mile = safe_float(data.get('land_mile'))
-        width_ft = safe_float(data.get('width'))
-        area_sqft = safe_float(data.get('project_area'))
+        land_mile = safe_float(data.get('land_mile', 0))
+        width_ft = safe_float(data.get('width', 0))
+        area_sqft = safe_float(data.get('project_area', 0))
         
         # Calculate area if not provided
         if area_sqft <= 0:
@@ -665,18 +672,17 @@ def process_estimate(data):
                 area_sqft = (land_mile * 5280) * width_ft
             else:
                 return jsonify({
-                    'error': 'Valid area required: Provide either area or land-mile+width'
+                    'error': 'Valid area required: Provide either area or land-mile+width',
+                    'details': f"land_mile: {land_mile}, width: {width_ft}, calculated_area: {area_sqft}"
                 }), 400
         
-        if area_sqft <= 0:
-            return jsonify({
-                'error': 'Valid area required: Provide either area or land-mile+width',
-                'details': f"land_mile: {land_mile}, width: {width_ft}, calculated_area: {area_sqft}"
-            }), 400
-
+        # Set default material type if not recognized
+        if material_type not in ['asphalt', 'recycled asphalt', 'bituminous surface', 'concrete', 'sealcoat']:
+            material_type = 'asphalt'
+        
         # Determine project duration and completion date
         completion_date_str = data.get('completion_date', '')
-        duration_weeks = safe_float(data.get('project_duration', '0'))
+        duration_weeks = safe_float(data.get('project_duration', 0))
         
         if completion_date_str:
             try:
@@ -691,12 +697,8 @@ def process_estimate(data):
                 duration_weeks = 8  # Default duration
             completion_date = datetime.now() + timedelta(weeks=duration_weeks)
         
-        # Calculate estimates
-        material_estimates = calculate_materials(
-            area_sqft, 
-            material_type, 
-            tonnage
-        )
+        # Calculate estimates with detailed logging
+        material_estimates = calculate_materials(area_sqft, material_type, tonnage)
         
         labor_estimates = calculate_labor(area_sqft, duration_weeks, project_type, material_type, width_ft)
         
@@ -707,7 +709,8 @@ def process_estimate(data):
             labor_estimates, 
             equipment_estimates,
             area_sqft,
-            duration_weeks
+            duration_weeks,
+            material_type
         )
         
         # Prepare project summary
@@ -747,6 +750,8 @@ def process_estimate(data):
             success_probability=success_probability,
             asphalt_tons=material_estimates.get('asphalt_tons', 0),
             concrete_yds=material_estimates.get('concrete_yds', 0),
+            bituminous_tons=material_estimates.get('bituminous_tons', 0),
+            sealcoat_sqft=material_estimates.get('sealcoat_sqft', 0),
             rebar_lbs=material_estimates.get('rebar_lbs', 0),
             aggregate_tons=material_estimates.get('aggregate_tons', 0),
             management_hours=labor_estimates.get('management_hours', 0),
@@ -763,7 +768,7 @@ def process_estimate(data):
             db.session.rollback()
             return jsonify({
                 'error': 'Database operation failed',
-                'details': str(e)
+                'details': str(e),
             }), 500
 
         # Prepare response
@@ -781,10 +786,10 @@ def process_estimate(data):
     
     except Exception as e:
         return jsonify({
-            'error': 'Estimate calculation failed',
-            'details': str(e)
+            'error': 'Estimate processing failed',
+            'details': str(e),
         }), 500
-
+    
 
 # Handle manual estimate calculation via JSON
 @app.route('/calculate_estimate', methods=['POST'])
@@ -794,234 +799,232 @@ def calculate_estimate():
 
 # Calculate material quantities
 def calculate_materials(area_sqft, material_type, tonnage):
-    """Calculate material quantities for paving projects based on Virginia standards."""
-    material_type = material_type.lower().strip()
-    results = {}
-
-    if material_type in ['asphalt', 'bituminous surface', 'recycled asphalt']:
-        if tonnage > 0:
-            asphalt_tons = tonnage
-        else:
-            thickness = ASPHALT_THICKNESS
-            if material_type == 'bituminous surface':
-                thickness = 0.167  # 2 inches, VDOT standard
-            elif material_type == 'recycled asphalt':
-                thickness = 0.25  # 3 inches
-            volume_cf = area_sqft * thickness
-            asphalt_tons = (volume_cf * ASPHALT_DENSITY) / 2000
+    try:
+        material_type = material_type.lower()
+        results = {}
         
-        results['asphalt_tons'] = round(asphalt_tons, 1)
-        results['aggregate_tons'] = round(asphalt_tons * 1.2, 1)
-        results['rebar_lbs'] = round(area_sqft * 0.5, 1)
-        results['emulsion_gal'] = round(area_sqft * 0.05, 1)
-        results['sealcoat_sqft'] = round(area_sqft)
-        results['thermoplastic_strip_ft'] = round(area_sqft / 10)
-
-    elif material_type in ['concrete', 'sidewalk', 'pavers']:
-        thickness = CONCRETE_THICKNESS
-        if material_type == 'sidewalk':
-            thickness = 0.33  # 4 inches
-        elif material_type == 'pavers':
-            thickness = 0.167  # 2 inches
-        volume_cf = area_sqft * thickness
-        concrete_yds = volume_cf / 27
-        results['concrete_yds'] = round(concrete_yds, 1)
-        results['rebar_lbs'] = round(area_sqft * 1.2, 1)
-        results['aggregate_tons'] = round(concrete_yds * 1.5, 1)
-        results['formwork_sqft'] = round(area_sqft * 1.1)
-        if material_type == 'pavers':
-            results['pavers_sqft'] = round(area_sqft)
-
-    elif material_type == 'aggregate base':
-        thickness = 0.5
-        volume_cf = area_sqft * thickness
-        aggregate_tons = (volume_cf * 120) / 2000
-        results['aggregate_tons'] = round(aggregate_tons, 1)
-
-    elif material_type == 'subbase':
-        thickness = 0.67
-        volume_cf = area_sqft * thickness
-        subbase_tons = (volume_cf * 115) / 2000
-        results['subbase_tons'] = round(subbase_tons, 1)
-
-    elif material_type == 'geotextile':
-        results['geotextile_sqyd'] = round(area_sqft / 9, 1)
-
-    elif material_type == 'sealcoat':
-        results['sealcoat_sqft'] = round(area_sqft)
-
-    elif material_type == 'thermoplastic striping':
-        results['thermoplastic_strip_ft'] = round(area_sqft / 12)
-
-    elif material_type == 'curb':
-        results['curb_ft'] = round(area_sqft / 6)
-
-    elif material_type == 'drainage pipe':
-        results['drainage_pipe_ft'] = round(area_sqft / 120)
-
-    elif material_type == 'stormwater structure':
-        results['stormwater_structures'] = max(1, round(area_sqft / 25000))
-
-    else:
-        return calculate_materials(area_sqft, 'asphalt', tonnage)
-
-    return results
+        # Asphalt types
+        if material_type in ['asphalt', 'recycled asphalt']:
+            density = RECYCLED_DENSITY if 'recycled' in material_type else ASPHALT_DENSITY
+            thickness = THICKNESS.get(material_type, THICKNESS['asphalt'])
+            
+            if tonnage > 0:
+                asphalt_tons = tonnage
+            else:
+                volume_cf = area_sqft * thickness
+                asphalt_tons = (volume_cf * density) / 2000
+            
+            results['asphalt_tons'] = round(asphalt_tons, 1)
+            results['aggregate_tons'] = round(asphalt_tons * 1.2, 1)
+        
+        # Bituminous surface
+        elif material_type == 'bituminous surface':
+            density = MATERIAL_CONSTANTS['bituminous surface']['density']
+            thickness = MATERIAL_CONSTANTS['bituminous surface']['thickness']
+            
+            if tonnage > 0:
+                bituminous_tons = tonnage
+            else:
+                volume_cf = area_sqft * thickness
+                bituminous_tons = (volume_cf * density) / 2000
+            
+            results['bituminous_tons'] = round(bituminous_tons, 1)
+            results['aggregate_tons'] = round(bituminous_tons * 1.2, 1)
+        
+        # Concrete
+        elif material_type == 'concrete':
+            thickness = THICKNESS['concrete']
+            volume_cf = area_sqft * thickness
+            concrete_yds = volume_cf / 27
+            results['concrete_yds'] = round(concrete_yds, 1)
+            results['rebar_lbs'] = round(area_sqft * 1.2, 1)  # 1.2 lbs per sq ft
+        
+        # Sealcoat
+        elif material_type == 'sealcoat':
+            results['sealcoat_sqft'] = round(area_sqft)
+        
+        return results
+    
+    except Exception as e:
+        # Just raise the exception without logging
+        raise
 
 # Calculate labor hours
 def calculate_labor(area_sqft, duration_weeks, project_type, material_type, width_ft):
-    """
-    Calculate labor hours for a 7-person crew based on Virginia productivity rates.
-    Handles narrow paths (width ≤ 3 ft) with higher productivity and adjusted phase distribution.
-    """
-    # Determine if project is a narrow path (width ≤ 3 ft)
-    is_narrow = width_ft > 0 and width_ft <= 3
-    # Set productivity rate based on project type and material
-    if "road" in project_type.lower():
-        if is_narrow and "concrete" in material_type.lower():
-            sqft_per_crew_hour = 300  # Higher rate for narrow concrete paths (VDOT/RSMeans 2025)
+    """Calculate labor hours for a 7-person crew based on Virginia productivity rates."""
+    try:
+        # Set default width
+        width_ft = width_ft or 0
+        
+        # Determine if project is a narrow path (width ≤ 3 ft)
+        is_narrow = width_ft > 0 and width_ft <= 3
+        
+        # Set productivity rate based on project type and material
+        if "road" in project_type.lower():
+            if is_narrow and "concrete" in material_type.lower():
+                sqft_per_crew_hour = 300  # Higher rate for narrow concrete paths
+            else:
+                sqft_per_crew_hour = 200  # Standard rate for asphalt/concrete roads
+        elif "sidewalk" in project_type.lower():
+            sqft_per_crew_hour = 150  # Rate for detailed sidewalk work
         else:
-            sqft_per_crew_hour = 200  # Standard rate for asphalt/concrete roads
-    elif "sidewalk" in project_type.lower():
-        sqft_per_crew_hour = 150  # Rate for detailed sidewalk work
-    else:
-        sqft_per_crew_hour = 120  # General paving projects
+            sqft_per_crew_hour = 120  # General paving projects
+        
+        # Define crew size and weekly capacity
+        CREW_SIZE = 7  # Standard crew size for small Virginia projects
+        HOURS_PER_WORKER_PER_WEEK = 40  # Standard work week
+        max_weekly_hours = CREW_SIZE * HOURS_PER_WORKER_PER_WEEK  # 280 hours/week
+        
+        # Calculate total crew hours
+        total_crew_hours = area_sqft / sqft_per_crew_hour
+        
+        # Cap hours based on crew capacity and duration
+        if duration_weeks > 0:
+            max_total_hours = max_weekly_hours * duration_weeks
+            total_crew_hours = min(total_crew_hours, max_total_hours)
+        
+        # Ensure minimum hours for small projects
+        total_crew_hours = max(total_crew_hours, CREW_SIZE * 8)  # Minimum 56 hours
+        
+        # Set phase distribution percentages
+        if is_narrow:
+            management_pct = 0.10  # 10% for management
+            prep_pct = 0.20       # 20% for minimal site prep
+            paving_pct = 0.65     # 65% for main paving work
+            finishing_pct = 0.05  # 5% for minimal finishing
+        else:
+            management_pct = 0.10  # Standard VDOT distribution
+            prep_pct = 0.30
+            paving_pct = 0.50
+            finishing_pct = 0.10
+        
+        # Distribute hours across phases
+        management_hours = total_crew_hours * management_pct
+        prep_hours = total_crew_hours * prep_pct
+        paving_hours = total_crew_hours * paving_pct
+        finishing_hours = total_crew_hours * finishing_pct
+        
+        # Return rounded hours
+        return {
+            'management_hours': round(management_hours),
+            'prep_hours': round(prep_hours),
+            'paving_hours': round(paving_hours),
+            'finishing_hours': round(finishing_hours),
+            'total_hours': round(total_crew_hours)
+        }
     
-    # Define crew size and weekly capacity
-    CREW_SIZE = 7  # Standard crew size for small Virginia projects
-    HOURS_PER_WORKER_PER_WEEK = 40  # Standard work week
-    max_weekly_hours = CREW_SIZE * HOURS_PER_WORKER_PER_WEEK  # 280 hours/week
-
-    # Calculate total crew hours
-    total_crew_hours = area_sqft / sqft_per_crew_hour
-
-    # Cap hours based on crew capacity and duration
-    if duration_weeks > 0:
-        max_total_hours = max_weekly_hours * duration_weeks
-        total_crew_hours = min(total_crew_hours, max_total_hours)
-    
-    # Ensure minimum hours for small projects
-    total_crew_hours = max(total_crew_hours, CREW_SIZE * 8)  # Minimum 56 hours
-
-    # Set phase distribution percentages
-    if is_narrow:
-        management_pct = 0.10  # 10% for management
-        prep_pct = 0.20       # 20% for minimal site prep (narrow paths need less grading)
-        paving_pct = 0.65     # 65% for main paving work
-        finishing_pct = 0.05  # 5% for minimal finishing (e.g., surface smoothing)
-    else:
-        management_pct = 0.10  # Standard VDOT distribution
-        prep_pct = 0.30
-        paving_pct = 0.50
-        finishing_pct = 0.10
-    
-    # Distribute hours across phases
-    management_hours = total_crew_hours * management_pct
-    prep_hours = total_crew_hours * prep_pct
-    paving_hours = total_crew_hours * paving_pct
-    finishing_hours = total_crew_hours * finishing_pct
-    
-    # Return rounded hours
-    return {
-        'management_hours': round(management_hours),
-        'prep_hours': round(prep_hours),
-        'paving_hours': round(paving_hours),
-        'finishing_hours': round(finishing_hours),
-        'total_hours': round(total_crew_hours)
-    }
+    except Exception as e:
+        raise
 
 # Calculate equipment needs
 def calculate_equipment(area_sqft, duration_weeks):
     """Calculate equipment quantities and costs based on Virginia rental rates."""
-    pavers = max(1, math.ceil(area_sqft / 120000))
-    rollers = max(1, math.ceil(area_sqft / 60000))
-    excavators = max(1, math.ceil(area_sqft / 150000))
-    trucks = max(2, math.ceil(area_sqft / 50000))
-    
-    paver_cost = pavers * 2500 * duration_weeks
-    roller_cost = rollers * 1000 * duration_weeks
-    excavator_cost = excavators * 2000 * duration_weeks
-    truck_cost = trucks * 900 * duration_weeks
+    try:
+        pavers = max(1, math.ceil(area_sqft / 120000))
+        rollers = max(1, math.ceil(area_sqft / 60000))
+        excavators = max(1, math.ceil(area_sqft / 150000))
+        trucks = max(2, math.ceil(area_sqft / 50000))
+        
+        paver_cost = pavers * 2500 * duration_weeks
+        roller_cost = rollers * 1000 * duration_weeks
+        excavator_cost = excavators * 2000 * duration_weeks
+        truck_cost = trucks * 900 * duration_weeks
 
-    return {
-        'pavers': pavers,
-        'rollers': rollers,
-        'excavators': excavators,
-        'trucks': trucks,
-        'paver_cost': round(paver_cost),
-        'roller_cost': round(roller_cost),
-        'excavator_cost': round(excavator_cost),
-        'truck_cost': round(truck_cost)
-    }
+        return {
+            'pavers': pavers,
+            'rollers': rollers,
+            'excavators': excavators,
+            'trucks': trucks,
+            'paver_cost': round(paver_cost),
+            'roller_cost': round(roller_cost),
+            'excavator_cost': round(excavator_cost),
+            'truck_cost': round(truck_cost)
+        }
+    
+    except Exception as e:
+        raise
 
 
 # Calculate financial summary
-def calculate_financials(materials, labor, equipment, area_sqft, duration_weeks):
+def calculate_financials(materials, labor, equipment, area_sqft, duration_weeks, material_type):
     """Calculate project costs, including materials, labor, equipment, overhead, and profit."""
-    material_costs = 0
+    try:
+        material_type = material_type.lower()
+        material_costs = 0
 
-    # Calculate material costs with markup
-    for key, qty in materials.items():
-        if key.endswith('_tons'):
-            base = 'asphalt' if 'asphalt' in key else 'aggregate base' if 'aggregate' in key else 'subbase'
-            unit_cost = MATERIAL_UNIT_COSTS.get(base, 100)
-            material_costs += qty * unit_cost * MATERIAL_MARKUP
-        elif key == 'concrete_yds':
-            material_costs += qty * MATERIAL_UNIT_COSTS['concrete'] * MATERIAL_MARKUP
-        elif key == 'rebar_lbs':
-            material_costs += qty * MATERIAL_UNIT_COSTS['rebar'] * MATERIAL_MARKUP
-        elif key == 'emulsion_gal':
-            material_costs += qty * MATERIAL_UNIT_COSTS['emulsion'] * MATERIAL_MARKUP
-        elif key == 'sealcoat_sqft':
-            material_costs += qty * MATERIAL_UNIT_COSTS['sealcoat'] * MATERIAL_MARKUP
-        elif key == 'thermoplastic_strip_ft':
-            material_costs += qty * MATERIAL_UNIT_COSTS['thermoplastic striping'] * MATERIAL_MARKUP
-        elif key == 'curb_ft':
-            material_costs += qty * MATERIAL_UNIT_COSTS['curb'] * MATERIAL_MARKUP
-        elif key == 'sidewalk_sqft':
-            material_costs += qty * MATERIAL_UNIT_COSTS['sidewalk'] * MATERIAL_MARKUP
-        elif key == 'pavers_sqft':
-            material_costs += qty * MATERIAL_UNIT_COSTS['pavers'] * MATERIAL_MARKUP
-        elif key == 'geotextile_sqyd':
-            material_costs += qty * MATERIAL_UNIT_COSTS['geotextile'] * MATERIAL_MARKUP
-        elif key == 'drainage_pipe_ft':
-            material_costs += qty * MATERIAL_UNIT_COSTS['drainage pipe'] * MATERIAL_MARKUP
-        elif key == 'stormwater_structures':
-            material_costs += qty * MATERIAL_UNIT_COSTS['stormwater structure'] * MATERIAL_MARKUP
+        # Calculate material costs
+        if material_type in ['asphalt', 'recycled asphalt', 'bituminous surface']:
+            # Determine asphalt unit cost
+            if material_type == 'recycled asphalt':
+                unit_cost = MATERIAL_UNIT_COSTS['recycled asphalt']
+            elif material_type == 'bituminous surface':
+                unit_cost = MATERIAL_UNIT_COSTS['bituminous surface']
+            else:
+                unit_cost = MATERIAL_UNIT_COSTS['asphalt']
+            
+            # Calculate asphalt costs
+            asphalt_tons = materials.get('asphalt_tons', 0)
+            material_costs += asphalt_tons * unit_cost * MATERIAL_MARKUP
+            
+            # Calculate aggregate costs
+            aggregate_tons = materials.get('aggregate_tons', 0)
+            material_costs += aggregate_tons * MATERIAL_UNIT_COSTS['aggregate base'] * MATERIAL_MARKUP
+        
+        elif material_type == 'concrete':
+            # Calculate concrete costs
+            concrete_yds = materials.get('concrete_yds', 0)
+            material_costs += concrete_yds * MATERIAL_UNIT_COSTS['concrete'] * MATERIAL_MARKUP
+            
+            # Calculate rebar costs
+            rebar_lbs = materials.get('rebar_lbs', 0)
+            material_costs += rebar_lbs * MATERIAL_UNIT_COSTS['rebar'] * MATERIAL_MARKUP
+        
+        elif material_type == 'sealcoat':
+            # Calculate sealcoat costs
+            sealcoat_sqft = materials.get('sealcoat_sqft', area_sqft)
+            material_costs += sealcoat_sqft * MATERIAL_UNIT_COSTS['sealcoat'] * MATERIAL_MARKUP
 
-    # Calculate labor costs
-    labor_costs = labor['total_hours'] * LABOR_RATE
+        # Calculate labor costs
+        labor_hours = labor.get('total_hours', 0)
+        if labor_hours <= 0:
+            # Fallback calculation if labor hours not provided
+            labor_hours = area_sqft / 100 * 10  # 10 hours per 100 sq ft
+        labor_costs = labor_hours * LABOR_RATE
+        
+        # Calculate equipment costs with markup
+        equipment_costs = (
+            equipment.get('paver_cost', 0) + 
+            equipment.get('roller_cost', 0) + 
+            equipment.get('excavator_cost', 0) + 
+            equipment.get('truck_cost', 0)
+        ) * EQUIPMENT_RATE_MULTIPLIER
+        
+        # Calculate subtotal, overhead, and profit
+        subtotal = material_costs + labor_costs + equipment_costs
+        overhead = subtotal * OVERHEAD_RATE
+        profit = subtotal * PROFIT_MARGIN
+        total_cost = subtotal + overhead + profit
+        
+        # Prepare cost breakdown
+        cost_breakdown = {
+            'materials': round(material_costs),
+            'labor': round(labor_costs),
+            'equipment': round(equipment_costs),
+            'overhead': round(overhead),
+            'profit': round(profit)
+        }
+        
+        cost_per_sqft = total_cost / area_sqft if area_sqft > 0 else 0
+        
+        return {
+            'total_cost': round(total_cost),
+            'cost_per_sqft': round(cost_per_sqft, 2),
+            'profit_margin': f"{PROFIT_MARGIN * 100}%",
+            'cost_breakdown': cost_breakdown
+        }
     
-    # Calculate equipment costs with markup
-    equipment_costs = (
-        equipment['paver_cost'] + 
-        equipment['roller_cost'] + 
-        equipment['excavator_cost'] + 
-        equipment['truck_cost']
-    ) * EQUIPMENT_RATE_MULTIPLIER
-    
-    # Calculate subtotal, overhead, and profit
-    subtotal = material_costs + labor_costs + equipment_costs
-    overhead = subtotal * OVERHEAD_RATE
-    profit = subtotal * PROFIT_MARGIN
-    total_cost = subtotal + overhead + profit
-    
-    # Prepare cost breakdown
-    cost_breakdown = {
-        'materials': round(material_costs),
-        'labor': round(labor_costs),
-        'equipment': round(equipment_costs),
-        'overhead': round(overhead),
-        'profit': round(profit)
-    }
-    
-    cost_per_sqft = total_cost / area_sqft if area_sqft > 0 else 0
-    
-    return {
-        'total_cost': round(total_cost),
-        'cost_per_sqft': round(cost_per_sqft, 2),
-        'profit_margin': f"{PROFIT_MARGIN * 100}%",
-        'cost_breakdown': cost_breakdown
-    }
+    except Exception as e:
+        raise
 
 
 # Calculate bid success probability
@@ -1088,11 +1091,31 @@ def download_report_csv(project_id):
     cw.writerow(['Land-Mile', project.land_mile])
     cw.writerow(['Width (ft)', project.width])
     cw.writerow(['Area (sq ft)', project.area])
-    cw.writerow(['Material', project.material])
-    cw.writerow(['Asphalt (tons)', project.asphalt_tons])
-    cw.writerow(['Concrete (yds)', project.concrete_yds])
-    cw.writerow(['Rebar (lbs)', project.rebar_lbs])
-    cw.writerow(['Aggregate (tons)', project.aggregate_tons])
+    
+    
+    material_type = project.material.lower()
+    cw.writerow([])
+    cw.writerow(['Material Estimates', 'Quantity'])
+    
+    if material_type == 'bituminous surface':
+        if hasattr(project, 'bituminous_tons') and project.bituminous_tons:
+            cw.writerow(['Bituminous Surface', f'{project.bituminous_tons} tons'])
+        if project.aggregate_tons:
+            cw.writerow(['Aggregate', f'{project.aggregate_tons} tons'])
+    elif 'asphalt' in material_type or 'bituminous' in material_type:
+        if project.asphalt_tons:
+            cw.writerow(['Asphalt', f'{project.asphalt_tons} tons'])
+        if project.aggregate_tons:
+            cw.writerow(['Aggregate', f'{project.aggregate_tons} tons'])
+    elif 'concrete' in material_type:
+        if project.concrete_yds:
+            cw.writerow(['Concrete', f'{project.concrete_yds} cubic yards'])
+        if project.rebar_lbs:
+            cw.writerow(['Rebar', f'{project.rebar_lbs} lbs'])
+    elif material_type == 'sealcoat':
+        if project.sealcoat_sqft:
+            cw.writerow(['Sealcoat', f'{project.sealcoat_sqft} sq ft'])
+
     cw.writerow(['Management Hours', project.management_hours])
     cw.writerow(['Preparation Hours', project.prep_hours])
     cw.writerow(['Paving Hours', project.paving_hours])
@@ -1118,6 +1141,29 @@ def generate_pdf_report(project):
         with open(logo_path, "rb") as logo_file:
             logo_data = base64.b64encode(logo_file.read()).decode('utf-8')
     
+    material_rows = ""
+    material_type = project.material.lower()
+    
+    if material_type == 'bituminous surface':
+        if hasattr(project, 'bituminous_tons') and project.bituminous_tons:
+            material_rows += f"<tr><td>Bituminous Surface</td><td>{project.bituminous_tons} tons</td></tr>"
+        if project.aggregate_tons:
+            material_rows += f"<tr><td>Aggregate</td><td>{project.aggregate_tons} tons</td></tr>"
+    elif 'asphalt' in material_type or 'bituminous' in material_type:
+        if project.asphalt_tons:
+            material_rows += f"<tr><td>Asphalt</td><td>{project.asphalt_tons} tons</td></tr>"
+        if project.aggregate_tons:
+            material_rows += f"<tr><td>Aggregate</td><td>{project.aggregate_tons} tons</td></tr>"
+    elif 'concrete' in material_type:
+        if project.concrete_yds:
+            material_rows += f"<tr><td>Concrete</td><td>{project.concrete_yds} cubic yards</td></tr>"
+        if project.rebar_lbs:
+            material_rows += f"<tr><td>Rebar</td><td>{project.rebar_lbs} lbs</td></tr>"
+    elif material_type == 'sealcoat':
+        if project.sealcoat_sqft:
+            material_rows += f"<tr><td>Sealcoat</td><td>{project.sealcoat_sqft} sq ft</td></tr>"
+
+
     # Define HTML content for PDF
     html_content = f"""
     <html>
@@ -1208,22 +1254,7 @@ def generate_pdf_report(project):
                     <th>Material</th>
                     <th>Quantity</th>
                 </tr>
-                <tr>
-                    <td>Asphalt</td>
-                    <td>{project.asphalt_tons} tons</td>
-                </tr>
-                <tr>
-                    <td>Concrete</td>
-                    <td>{project.concrete_yds} cubic yards</td>
-                </tr>
-                <tr>
-                    <td>Rebar</td>
-                    <td>{project.rebar_lbs} lbs</td>
-                </tr>
-                <tr>
-                    <td>Aggregate</td>
-                    <td>{project.aggregate_tons} tons</td>
-                </tr>
+                {material_rows}
             </table>
         </div>
         <div class="section">
