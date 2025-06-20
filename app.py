@@ -145,6 +145,7 @@ class Project(db.Model):
     prep_hours = db.Column(db.Integer)  # Site preparation labor hours
     paving_hours = db.Column(db.Integer)  # Paving labor hours
     finishing_hours = db.Column(db.Integer)  # Finishing labor hours
+    cost_breakdown = db.Column(db.JSON)
 
 
 
@@ -757,7 +758,8 @@ def process_estimate(data):
             management_hours=labor_estimates.get('management_hours', 0),
             prep_hours=labor_estimates.get('prep_hours', 0),
             paving_hours=labor_estimates.get('paving_hours', 0),
-            finishing_hours=labor_estimates.get('finishing_hours', 0)
+            finishing_hours=labor_estimates.get('finishing_hours', 0),
+            cost_breakdown=financial_summary['cost_breakdown']
         )
         
         # Save to database
@@ -1121,6 +1123,11 @@ def download_report_csv(project_id):
     cw.writerow(['Paving Hours', project.paving_hours])
     cw.writerow(['Finishing Hours', project.finishing_hours])
     cw.writerow(['Profit Margin', project.profit_margin])
+    cw.writerow(['Materials Cost', f"${project.cost_breakdown['materials']}"])
+    cw.writerow(['Labor Cost', f"${project.cost_breakdown['labor']}"])
+    cw.writerow(['Equipment Cost', f"${project.cost_breakdown['equipment']}"])
+    cw.writerow(['Overhead Cost', f"${project.cost_breakdown['overhead']}"])
+    cw.writerow(['Profit', f"${project.cost_breakdown['profit']}"])
     cw.writerow(['Success Probability', project.success_probability])
     cw.writerow(['Scope', project.scope])
     cw.writerow(['Requirements', project.requirements or ''])
@@ -1241,11 +1248,51 @@ def generate_pdf_report(project):
                     <p><strong>Submitted on:</strong> {project.submitted.strftime('%Y-%m-%d')}</p>
                     <p><strong>Completion Date:</strong> {project.completion_date.strftime('%Y-%m-%d') if project.completion_date else 'N/A'}</p>
                     <p><strong>Tonnage:</strong> {project.tonnage} tons</p>
+                    <p><strong>Success Probability:</strong> {project.success_probability}</p>
                     <p><strong>Status:</strong> 
                         <span class="status-badge status-{project.status}">{project.status.capitalize()}</span>
                     </p>
                 </div>
             </div>
+        </div>
+        <div class="section">
+            <h2>Financial Summary</h2>
+            <table>
+                <tr>
+                    <td><strong>Estimated Cost:</strong></td>
+                    <td>{project.cost}</td>
+                </tr>
+                <tr>    
+                    <td><strong>Profit Margin:</strong></td>
+                    <td>{project.profit_margin}</td>
+                </tr>
+                <tr>
+                    <td><strong>Pricing Breakdown:</strong></td>
+                    <td>  
+                        <table>
+                            <tr>
+                                <td><strong>Materials:</strong></td>
+                                <td>${project.cost_breakdown['materials']}</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Labor:</strong></td>
+                                <td>${project.cost_breakdown['labor']}</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Equipment:</strong></td>
+                                <td>${project.cost_breakdown['equipment']}</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Overhead:</strong></td>
+                                <td>${project.cost_breakdown['overhead']}</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Profit:</strong></td>
+                                <td>${project.cost_breakdown['profit']}</td>
+                            </tr>
+                        </table>
+                    </td>
+            </table>
         </div>
         <div class="section">
             <h2>Resource Estimates</h2>
@@ -1265,38 +1312,24 @@ def generate_pdf_report(project):
                     <th>Hours</th>
                 </tr>
                 <tr>
-                    <td>Management</td>
+                    <td><strong>Management:</strong></td>
                     <td>{project.management_hours}</td>
                 </tr>
                 <tr>
-                    <td>Preparation</td>
+                    <td><strong>Preparation:</strong></td>
                     <td>{project.prep_hours}</td>
                 </tr>
                 <tr>
-                    <td>Paving</td>
+                    <td><strong>Paving:</strong></td>
                     <td>{project.paving_hours}</td>
                 </tr>
                 <tr>
-                    <td>Finishing</td>
+                    <td><strong>Finishing:</strong></td>
                     <td>{project.finishing_hours}</td>
                 </tr>
             </table>
         </div>
-        <div class="section">
-            <h2>Financial Summary</h2>
-            <table>
-                <tr>
-                    <td>Estimated Cost:</td>
-                    <td>{project.cost}</td>
-                    <td>Profit Margin:</td>
-                    <td>{project.profit_margin}</td>
-                </tr>
-                <tr>
-                    <td>Success Probability:</td>
-                    <td>{project.success_probability}</td>
-                </tr>
-            </table>
-        </div>
+
         <div class="section">
             <h2>Project Scope</h2>
             <p>{project.scope}</p>
