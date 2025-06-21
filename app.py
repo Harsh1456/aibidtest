@@ -1177,6 +1177,9 @@ def generate_pdf_report(project):
     if os.path.exists(logo_path):
         with open(logo_path, "rb") as logo_file:
             logo_data = base64.b64encode(logo_file.read()).decode('utf-8')
+
+    # Calculate profit margin percentage
+    profit_margin_percent = round(project.profit_margin * 100, 1)
     
     material_rows = ""
     material_type = project.material.lower()
@@ -1294,7 +1297,7 @@ def generate_pdf_report(project):
                 </tr>
                 <tr>    
                     <td><strong>Profit Margin:</strong></td>
-                    <td>{ (project.profit_margin * 100)|round(1) }%</td>
+                    <td>{profit_margin_percent}%</td>
                 </tr>
                 <tr>
                     <td><strong>Pricing Breakdown:</strong></td>
