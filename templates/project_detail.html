@@ -523,7 +523,7 @@
               </div>
               <div class="detail-item">
                 <span>Profit Margin:</span>
-                <span id="detail-margin">{{ project.profit_margin }}</span>
+                <span id="detail-margin">{{ (project.profit_margin * 100)|round(1) }}%</span>
               </div>
               <div class="detail-item">
                 <span>Success Probability:</span>
@@ -547,10 +547,6 @@
                 <div class="detail-item">
                   <span>Overhead:</span>
                   <span>${{ project.cost_breakdown.overhead | round | int }}</span>
-                </div>
-                <div class="detail-item">
-                  <span>Profit:</span>
-                  <span>${{ project.cost_breakdown.profit | round | int }}</span>
                 </div>
               </div>
           </div>
