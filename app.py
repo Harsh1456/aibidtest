@@ -116,11 +116,12 @@ MATERIAL_CONSTANTS = {
 
 # Virginia-specific profit margins (2025)
 PROFIT_MARGINS = {
-    'road': {'min': 0.08, 'max': 0.15},        # 8-15% for road construction
-    'bridge': {'min': 0.12, 'max': 0.20},      # 12-20% for bridge construction
-    'building': {'min': 0.10, 'max': 0.18},    # 10-18% for building construction
-    'renovation': {'min': 0.15, 'max': 0.22}   # 15-22% for renovation projects
+    'road': {'min': 0.08, 'max': 0.15},
+    'bridge': {'min': 0.12, 'max': 0.20},
+    'building': {'min': 0.10, 'max': 0.18},
+    'renovation': {'min': 0.15, 'max': 0.22}
 }
+
 
 # Project Model: Defines the database schema for storing project details
 class Project(db.Model):
@@ -140,7 +141,7 @@ class Project(db.Model):
     scope = db.Column(db.Text, nullable=False)  # Project scope
     requirements = db.Column(db.Text)  # Special requirements
     estimated_cost = db.Column(db.String(50))  # Estimated cost (formatted)
-    profit_margin = db.Column(db.Float)  
+    profit_margin = db.Column(db.Float)  # Profit margin percentage
     success_probability = db.Column(db.String(20))  # Success probability
     asphalt_tons = db.Column(db.Float)  # Asphalt quantity in tons
     concrete_yds = db.Column(db.Float)  # Concrete quantity in cubic yards
@@ -314,7 +315,7 @@ def get_project(project_id):
                 'scope': project.scope,
                 'requirements': project.requirements,
                 'estimatedCost': project.estimated_cost,
-                 profit_margin = db.Column(db.Float)
+                'profitMargin': project.profit_margin,
                 'successProbability': project.success_probability,
                 'asphalt': project.asphalt_tons,
                 'concrete': project.concrete_yds,
@@ -719,7 +720,7 @@ def process_estimate(data):
             area_sqft,
             duration_weeks,
             material_type,
-            project_type=data.get('project_type', 'road')  # Pass project type
+            project_type=data.get('project_type', 'road')
         )
         
         # Prepare project summary
@@ -800,6 +801,8 @@ def process_estimate(data):
             'details': str(e),
         }), 500
     
+
+# Calculate Profit based on Project type and its size
 def calculate_profit_margin(project_type, area_sqft):
     """Calculate dynamic profit margin based on project type and size"""
     margins = PROFIT_MARGINS.get(project_type.lower(), PROFIT_MARGINS['road'])
@@ -968,7 +971,7 @@ def calculate_equipment(area_sqft, duration_weeks):
 
 
 # Calculate financial summary
-def calculate_financials(materials, labor, equipment, area_sqft, duration_weeks, material_type):
+def calculate_financials(materials, labor, equipment, area_sqft, duration_weeks, material_type, project_type):
     """Calculate project costs, including materials, labor, equipment, overhead, and profit."""
     try:
         material_type = material_type.lower()
@@ -1043,7 +1046,7 @@ def calculate_financials(materials, labor, equipment, area_sqft, duration_weeks,
         return {
             'total_cost': round(total_cost),
             'profit_margin_value': profit_margin,
-            'profit_margin': f"{profit_margin * 100:.1f}%",
+            'profit_margin': f"{profit_margin * 100:.1f}%",  
             'cost_per_sqft': round(cost_per_sqft, 2),
             'cost_breakdown': cost_breakdown
         }
@@ -1177,10 +1180,9 @@ def generate_pdf_report(project):
     if os.path.exists(logo_path):
         with open(logo_path, "rb") as logo_file:
             logo_data = base64.b64encode(logo_file.read()).decode('utf-8')
-
-    # Calculate profit margin percentage
-    profit_margin_percent = round(project.profit_margin * 100, 1)
     
+    profit_margin_percent = round(project.profit_margin * 100, 1)
+
     material_rows = ""
     material_type = project.material.lower()
     
