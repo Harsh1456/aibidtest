@@ -140,7 +140,7 @@ class Project(db.Model):
     scope = db.Column(db.Text, nullable=False)  # Project scope
     requirements = db.Column(db.Text)  # Special requirements
     estimated_cost = db.Column(db.String(50))  # Estimated cost (formatted)
-    profit_margin = db.Column(db.String(20))  # Profit margin percentage
+    profit_margin = db.Column(db.Float)  
     success_probability = db.Column(db.String(20))  # Success probability
     asphalt_tons = db.Column(db.Float)  # Asphalt quantity in tons
     concrete_yds = db.Column(db.Float)  # Concrete quantity in cubic yards
