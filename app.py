@@ -114,6 +114,13 @@ MATERIAL_CONSTANTS = {
     'sealcoat': {'density': 100, 'thickness': 0.02}   # Sealcoat
 }
 
+# Virginia-specific profit margins (2025)
+PROFIT_MARGINS = {
+    'road': {'min': 0.08, 'max': 0.15},        # 8-15% for road construction
+    'bridge': {'min': 0.12, 'max': 0.20},      # 12-20% for bridge construction
+    'building': {'min': 0.10, 'max': 0.18},    # 10-18% for building construction
+    'renovation': {'min': 0.15, 'max': 0.22}   # 15-22% for renovation projects
+}
 
 # Project Model: Defines the database schema for storing project details
 class Project(db.Model):
@@ -307,7 +314,7 @@ def get_project(project_id):
                 'scope': project.scope,
                 'requirements': project.requirements,
                 'estimatedCost': project.estimated_cost,
-                'profitMargin': project.profit_margin,
+                 profit_margin = db.Column(db.Float)
                 'successProbability': project.success_probability,
                 'asphalt': project.asphalt_tons,
                 'concrete': project.concrete_yds,
@@ -711,7 +718,8 @@ def process_estimate(data):
             equipment_estimates,
             area_sqft,
             duration_weeks,
-            material_type
+            material_type,
+            project_type=data.get('project_type', 'road')  # Pass project type
         )
         
         # Prepare project summary
@@ -747,7 +755,7 @@ def process_estimate(data):
             scope=scope,
             requirements=project_requirements,
             estimated_cost=f"${financial_summary['total_cost']}",
-            profit_margin=financial_summary['profit_margin'],
+            profit_margin=financial_summary['profit_margin_value'],
             success_probability=success_probability,
             asphalt_tons=material_estimates.get('asphalt_tons', 0),
             concrete_yds=material_estimates.get('concrete_yds', 0),
@@ -792,6 +800,18 @@ def process_estimate(data):
             'details': str(e),
         }), 500
     
+def calculate_profit_margin(project_type, area_sqft):
+    """Calculate dynamic profit margin based on project type and size"""
+    margins = PROFIT_MARGINS.get(project_type.lower(), PROFIT_MARGINS['road'])
+    
+    # Adjust based on project size (Virginia standards)
+    if area_sqft < 10000:       # Small project
+        return margins['max']
+    elif area_sqft < 100000:    # Medium project
+        return (margins['min'] + margins['max']) / 2
+    else:                       # Large project
+        return margins['min']
+
 
 # Handle manual estimate calculation via JSON
 @app.route('/calculate_estimate', methods=['POST'])
@@ -1001,10 +1021,12 @@ def calculate_financials(materials, labor, equipment, area_sqft, duration_weeks,
             equipment.get('truck_cost', 0)
         ) * EQUIPMENT_RATE_MULTIPLIER
         
+        profit_margin = calculate_profit_margin(project_type, area_sqft)
+        
         # Calculate subtotal, overhead, and profit
         subtotal = material_costs + labor_costs + equipment_costs
         overhead = subtotal * OVERHEAD_RATE
-        profit = subtotal * PROFIT_MARGIN
+        profit = subtotal * profit_margin
         total_cost = subtotal + overhead + profit
         
         # Prepare cost breakdown
@@ -1020,8 +1042,9 @@ def calculate_financials(materials, labor, equipment, area_sqft, duration_weeks,
         
         return {
             'total_cost': round(total_cost),
+            'profit_margin_value': profit_margin,
+            'profit_margin': f"{profit_margin * 100:.1f}%",
             'cost_per_sqft': round(cost_per_sqft, 2),
-            'profit_margin': f"{PROFIT_MARGIN * 100}%",
             'cost_breakdown': cost_breakdown
         }
     
@@ -1118,17 +1141,24 @@ def download_report_csv(project_id):
         if project.sealcoat_sqft:
             cw.writerow(['Sealcoat', f'{project.sealcoat_sqft} sq ft'])
 
+
+    cw.writerow([])
+    cw.writerow(['Time Estimates'])
     cw.writerow(['Management Hours', project.management_hours])
     cw.writerow(['Preparation Hours', project.prep_hours])
     cw.writerow(['Paving Hours', project.paving_hours])
     cw.writerow(['Finishing Hours', project.finishing_hours])
-    cw.writerow(['Profit Margin', project.profit_margin])
+    cw.writerow([])
+    cw.writerow(['Cost Breakdown'])
+    cw.writerow(['Profit Margin', f"{(project.profit_margin * 100):.1f}%"])
     cw.writerow(['Materials Cost', f"${project.cost_breakdown['materials']}"])
     cw.writerow(['Labor Cost', f"${project.cost_breakdown['labor']}"])
     cw.writerow(['Equipment Cost', f"${project.cost_breakdown['equipment']}"])
     cw.writerow(['Overhead Cost', f"${project.cost_breakdown['overhead']}"])
-    cw.writerow(['Profit', f"${project.cost_breakdown['profit']}"])
+    # cw.writerow(['Profit', f"${project.cost_breakdown['profit']}"])
+    cw.writerow([])
     cw.writerow(['Success Probability', project.success_probability])
+    cw.writerow([])
     cw.writerow(['Scope', project.scope])
     cw.writerow(['Requirements', project.requirements or ''])
     
@@ -1264,7 +1294,7 @@ def generate_pdf_report(project):
                 </tr>
                 <tr>    
                     <td><strong>Profit Margin:</strong></td>
-                    <td>{project.profit_margin}</td>
+                    <td>{ (project.profit_margin * 100)|round(1) }%</td>
                 </tr>
                 <tr>
                     <td><strong>Pricing Breakdown:</strong></td>
@@ -1285,10 +1315,6 @@ def generate_pdf_report(project):
                             <tr>
                                 <td><strong>Overhead:</strong></td>
                                 <td>${project.cost_breakdown['overhead']}</td>
-                            </tr>
-                            <tr>
-                                <td><strong>Profit:</strong></td>
-                                <td>${project.cost_breakdown['profit']}</td>
                             </tr>
                         </table>
                     </td>
