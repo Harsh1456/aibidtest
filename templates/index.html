@@ -735,7 +735,7 @@
                   <span id="result-success-probability">78%</span>
                 </div>
                 <div class="summary-item flex justify-between">
-                  <span>Primary Material:</span>
+                  <span>Primary Material Tonnage:</span>
                   <span id="result-tonnage">850 tons</span>
                 </div>
               </div>
@@ -843,7 +843,7 @@
                   </div>
                   <span class="font-medium" id="result-overhead-cost">$0</span>
                 </div>
-<!--                 <div class="summary-item">
+                <!-- <div class="summary-item">
                   <div class="flex items-center">
                     <div class="w-3 h-3 bg-[#4ade80] mr-2 rounded-sm"></div>
                     <span><strong>Profit:</strong></span>
@@ -1318,7 +1318,7 @@
         else if (materialType === 'sealcoat' && materials.sealcoat_sqft !== undefined) {
           primaryMaterial = `${materials.sealcoat_sqft.toLocaleString()} sq ft`;
         }
-        else if (materialType === 'asphalt' && materials.asphalt_tons !== undefined) {
+        else if ((materialType === 'asphalt' || materialType === 'recycled asphalt') && materials.asphalt_tons !== undefined) {
           primaryMaterial = `${materials.asphalt_tons.toLocaleString()} tons`;
         }
         else if (materialType === 'concrete' && materials.concrete_yds !== undefined) {
