@@ -785,32 +785,34 @@ document.addEventListener('DOMContentLoaded', function() {
   }
 
   if (confirmDeleteBtn) {
-    confirmDeleteBtn.addEventListener('click', () => {
-      if (pendingDeleteId) {
-        deleteProject(pendingDeleteId);
-        deleteModal.classList.add('hidden');
-        pendingDeleteId = null;
-      }
-    });
+      confirmDeleteBtn.addEventListener('click', () => {
+          if (pendingDeleteId) {
+              deleteProject(pendingDeleteId);  // Use our custom function
+              deleteModal.classList.add('hidden');
+              pendingDeleteId = null;
+          }
+      });
   }
 
   // Delete project
   function deleteProject(projectId) {
-    fetch(`/api/admin/projects/${projectId}`, {
-      method: 'DELETE',
-      credentials: 'same-origin'
-    }).then(res => {
-      if (res.ok) {
-        showNotification('Project deleted!', 'success');
-        // Added redirect notification
-        setTimeout(() => {
-          showNotification('Redirecting back to dashboard...', 'info');
-          setTimeout(() => {
-            window.location.href = '/admin/dashboard';
-          }, 1500);
-        }, 1000);
-      }
-    });
+      fetch(`/api/admin/projects/${projectId}`, {
+          method: 'DELETE',
+          credentials: 'same-origin'
+      }).then(res => {
+          if (res.ok) {
+              showNotification('Project deleted!', 'success');
+              // Only redirect from detail page
+              setTimeout(() => {
+                  showNotification('Redirecting back to dashboard...', 'info');
+                  setTimeout(() => {
+                      window.location.href = '/admin/dashboard';
+                  }, 1500);
+              }, 1000);
+          } else {
+              showNotification('Failed to delete project.', 'error');
+          }
+      });
   }
 
   // Download report
