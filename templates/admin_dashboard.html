@@ -799,12 +799,9 @@ document.addEventListener('DOMContentLoaded', function() {
         }).then(res => {
             if (res.ok) {
                 showNotification('Project deleted!', 'success');
-                setTimeout(() => {
-                    showNotification('Redirecting back to dashboard...', 'info');
-                    setTimeout(() => {
-                        window.location.href = '/admin/dashboard';
-                    }, 1500);
-                }, 1000);
+                // Remove row without redirecting
+                const row = document.querySelector(`tr[data-id="${projectId}"]`);
+                if (row) row.remove();
             } else {
                 showNotification('Failed to delete project.', 'error');
             }
